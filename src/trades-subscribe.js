@@ -3,9 +3,14 @@ import queueProvider from './lib/queueProvider';
 
 import config from '../config.json';
 
+const options = {
+	mode: ['trades'],
+	symbols: config.symbols
+};
+
 (async () => {
 
-	await dataProvider.initialise(config.symbols, config.rebuild || false);
+	await dataProvider.initialise(config.rebuild || false, options);
 
 	await queueProvider.initialise(config.queue.name);
 
@@ -22,6 +27,6 @@ import config from '../config.json';
 		}
 
 		return true;
-	})
+	});
 
 })();

@@ -5,7 +5,7 @@
 		"schema": "crypto",
 		"user": "root",
 		"password": "p@ssw0rd1",
-		"host": "127.0.0.1"
+		"host": "10.0.1.11"
 	},
 
 	"queue": {

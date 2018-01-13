@@ -4,7 +4,7 @@ import config from '../../config.json';
 
 class mySqlProvider {
 
-  initialise(symbols, rebuild) {
+  initialise(rebuild, options) {
     this.sequelize = new Sequelize(config.database.schema, config.database.user, config.database.password, {
         host: config.database.host,
         dialect: 'mysql',
@@ -23,23 +23,50 @@ class mySqlProvider {
 
     this.models = {};
 
-    symbols.forEach(symbol => {
-      const key = `${symbol}_trades`;
-      this.models[key] = this.sequelize.define(
-        key, {
-          transactionStamp: { type: TIMESTAMP, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
-          transactionDateTime: { type: Sequelize.DATE, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+    if (options && options.mode && options.mode.includes('trades') === true && options.symbols) {
+      options.symbols.forEach(symbol => {
+        const key = `${symbol}_trades`;
+        this.models[key] = this.sequelize.define(
+          key, {
+            transactionStamp: { type: TIMESTAMP, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+            transactionDateTime: { type: Sequelize.DATE, defaultValue: Sequelize.literal('CURRENT_TIMESTAMP') },
+            platform: { type: Sequelize.STRING(6) },
+            symbol: { type: Sequelize.STRING(10) },
+            price: { type: Sequelize.DECIMAL(18,10) },
+            volume: { type: Sequelize.DECIMAL(18,10) },
+          }, {
+            indexes: [{
+              fields: ['transactionStamp']
+            }]
+          }
+        );
+      });        
+    }
+
+    if (options && options.mode && options.mode.includes('candlesticks') === true) {
+      this.models.candlesticks = this.sequelize.define(
+        'candlesticks', {
+          key: { type: Sequelize.STRING(30), primaryKey: true, autoIncrement: false },
           platform: { type: Sequelize.STRING(6) },
           symbol: { type: Sequelize.STRING(10) },
-          price: { type: Sequelize.DECIMAL(18,10) },
+          period: { type: Sequelize.STRING(4) },
+          dt: { type: Sequelize.DATE },
+          open: { type: Sequelize.DECIMAL(18,10) },
+          close: { type: Sequelize.DECIMAL(18,10) },
+          high: { type: Sequelize.DECIMAL(18,10) },
+          low: { type: Sequelize.DECIMAL(18,10) },
           volume: { type: Sequelize.DECIMAL(18,10) },
+          assetVolume: { type: Sequelize.DECIMAL(18,10) },
+          buyBaseVolume: { type: Sequelize.DECIMAL(18,10) },
+          buyAssetVolume: { type: Sequelize.DECIMAL(18,10) },
         }, {
+          timestamps: false,
           indexes: [{
-            fields: ['transactionStamp']
+            fields: ['symbol', 'period', 'dt']
           }]
         }
       );
-    });  
+    }
 
     return this.syncAndRebuildDatabase(rebuild);
   }
@@ -77,10 +104,23 @@ class TradeSelector {
 
 }
 
+class CandlestickSelector {
+
+  constructor(sqlProvider) {
+    this.provider = sqlProvider;
+  }
+
+  upsert(msg) {
+    return this.provider.models.candlesticks.upsert(msg);
+  }
+
+}
+
 const mySql = new mySqlProvider();
 export default {
   _provider: mySql,
   trades: new TradeSelector(mySql),
+  candlesticks: new CandlestickSelector(mySql),
   close: () => mySql.close(),
   initialise: (symbols, rebuild) => mySql.initialise(symbols, rebuild)
 };
