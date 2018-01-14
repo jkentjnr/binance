@@ -4,15 +4,30 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "candlesticks": "npm run candlesticks.1m && npm run candlesticks.3m && npm run candlesticks.5m && npm run candlesticks.15m && npm run candlesticks.30m && npm run candlesticks.1h && npm run candlesticks.2h && npm run candlesticks.4h && npm run candlesticks.6h && npm run candlesticks.1d",
+    "candlesticks.1m": "babel-node ./src/candlesticks --period 1m",
+    "candlesticks.3m": "babel-node ./src/candlesticks --period 3m",
+    "candlesticks.5m": "babel-node ./src/candlesticks --period 5m",
+    "candlesticks.15m": "babel-node ./src/candlesticks --period 15m",
+    "candlesticks.30m": "babel-node ./src/candlesticks --period 30m",
+    "candlesticks.1h": "babel-node ./src/candlesticks --period 1h",
+    "candlesticks.2h": "babel-node ./src/candlesticks --period 2h",
+    "candlesticks.4h": "babel-node ./src/candlesticks --period 4h",
+    "candlesticks.6h": "babel-node ./src/candlesticks --period 6h",
+    "candlesticks.1d": "babel-node ./src/candlesticks --period 1d"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "amqplib": "^0.5.2",
+    "argparse": "^1.0.9",
     "babel-polyfill": "^6.26.0",
+    "colors": "^1.1.2",
+    "moment": "^2.20.1",
     "mysql2": "^1.5.1",
     "node-binance-api": "^0.3.5",
+    "performance-now": "^2.1.0",
     "sequelize": "^4.31.0",
     "sequelize-mysql-timestamp": "^1.3.0"
   },

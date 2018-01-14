@@ -1,4 +1,5 @@
 import Sequelize from 'sequelize';
+const Op = Sequelize.Op
 
 import config from '../../config.json';
 
@@ -19,7 +20,7 @@ class mySqlProvider {
     });
 
     // now add the TIMESTAMP type 
-    const TIMESTAMP = require('sequelize-mysql-timestamp')(this.sequelize);
+    const TIMESTAMP = require('sequelize-mysql-timestamp')(this.sequelize, { warnings: false });
 
     this.models = {};
 
@@ -55,10 +56,10 @@ class mySqlProvider {
           close: { type: Sequelize.DECIMAL(18,10) },
           high: { type: Sequelize.DECIMAL(18,10) },
           low: { type: Sequelize.DECIMAL(18,10) },
-          volume: { type: Sequelize.DECIMAL(18,10) },
-          assetVolume: { type: Sequelize.DECIMAL(18,10) },
-          buyBaseVolume: { type: Sequelize.DECIMAL(18,10) },
-          buyAssetVolume: { type: Sequelize.DECIMAL(18,10) },
+          volume: { type: Sequelize.DECIMAL(30,10) },
+          assetVolume: { type: Sequelize.DECIMAL(30,10) },
+          buyBaseVolume: { type: Sequelize.DECIMAL(30,10) },
+          buyAssetVolume: { type: Sequelize.DECIMAL(30,10) },
         }, {
           timestamps: false,
           indexes: [{
@@ -102,6 +103,37 @@ class TradeSelector {
     return this.provider.models[`${symbol}_trades`].create(txn);
   }
 
+  getByDateTimeRange(symbol, firstDate, lastDate) {
+    return this.provider.models[`${symbol}_trades`].findAll({
+      where: {
+        symbol,
+        transactionStamp: {
+          [Op.gte]: firstDate,
+          [Op.lte]: lastDate,
+        }
+      },
+      order: [
+        ['transactionStamp']
+      ]
+    });
+  }
+
+  getNext(symbol, dt, desc) {
+    const operation = (desc === true) ? Op.lte : Op.gte;
+    return this.provider.models[`${symbol}_trades`].findAll({
+      limit: 1,
+      where: {
+        symbol,
+        transactionStamp: {
+          [operation]: dt
+        }
+      },
+      order: [
+        ['transactionStamp', (desc === true) ? 'DESC' : 'ASC']
+      ]
+    });
+  }
+
 }
 
 class CandlestickSelector {
@@ -110,8 +142,25 @@ class CandlestickSelector {
     this.provider = sqlProvider;
   }
 
-  upsert(msg) {
-    return this.provider.models.candlesticks.upsert(msg);
+  getByDateTimeRange(symbol, period, firstDate, lastDate) {
+    return this.provider.models.candlesticks.findAll({
+      where: {
+        symbol,
+        period,
+        dt: {
+          [Op.gte]: firstDate,
+          [Op.lte]: lastDate,
+        }
+      }
+    });
+  }
+
+  bulkCreate(msgList) {
+    return this.provider.models.candlesticks.bulkCreate(msgList);
+  }
+
+  create(msg) {
+    return this.provider.models.candlesticks.create(msg);
   }
 
 }
