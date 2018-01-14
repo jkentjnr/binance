@@ -16,11 +16,13 @@ export default class BotEngine {
 	constructor(args) {
 		
 		const { symbol, bot:botName }= args;
+		const txnFee = args.txnFee || 0.005;
 
 		if (!symbol) throw new Error('You must specify a symbol eg. ETHBTC.');
 		if (!botName) throw new Error('You must specify a bot eg. gary.');
 
 		this.log(`Symbol: ${colors.bold(symbol)}`);
+		this.log(`Transaction Fee: ${colors.bold(txnFee)}`);
 		this.log();
 
 		// Determine if simulating.
@@ -39,12 +41,14 @@ export default class BotEngine {
 			this.log(`Simulation End:   ${moment(simTo).format('Do MMM YY h:mm:ss a')}`);
 		}
 
+		this.history = [];
 		this.options = {
 			batch: args.name || `${botName}_${new Date().getTime()}`,
 			symbol: args.symbol,
 			bot: botName,
 			config: {
 				sleep: args.sleep || 3,
+				txnFee: txnFee,
 			},
 			state: {
 				time: null,
@@ -67,6 +71,8 @@ export default class BotEngine {
 			await this.executeSimulation()
 		else
 			await this.executeStream();
+
+		this.outputTrades();
 
 		await dataProvider.close();
 	}
@@ -108,6 +114,12 @@ export default class BotEngine {
 			// Complete order;
 			await this.placeOrder();
 		}
+		else if (this.options.state.evaluation.action === 'sell') {
+			this.log(`Received ${colors.black.bgRed('SELL')} instruction @ ${this.options.state.evaluation.price}`);
+
+			// Complete order;
+			await this.placeSell();
+		}
 
 		return true;
 	}
@@ -121,12 +133,70 @@ export default class BotEngine {
 
 			this.log(`Placed ${colors.black.bgGreen('BUY')} order @ ${price}`);
 			this.log(`Successful ${colors.black.bgGreen('BUY')} order @ ${price}`);
-			return;
 		}
+	}
+
+	async placeSell() {
+		const { price, buy } = this.options.state.evaluation;
+
+		if (this.options.simulation.enabled) {
+			this.options.state.order = null;
+			this.options.state.evaluation = null;
+
+			this.log(`Placed ${colors.black.bgRed('SELL')} order @ ${price}`);
+			this.log(`Successful ${colors.black.bgRed('SELL')} order @ ${price}`);
+		}
+
+		this.history.push({ sell: price, buy });
 	}
 
 	async executeStream() {
 		return;
+	}
+
+	outputTrades() {
+		this.log();
+		this.log(colors.bold('TRADE HISTORY'));
+		this.log(colors.bold('============='));
+		this.log();
+		this.log(`Transaction Fee: ${this.options.config.txnFee}`);
+		this.log();	
+
+		if (this.history.length === 0) {
+			this.log('  (No Trades)');
+		}
+		else {
+			const totalProfit = [];
+			this.history.forEach((item, i) => {
+				this.log(`Trade #${i+1}`);
+				this.log(`------------------------------------`);
+				this.log(`${colors.bold('BUY:                   ')} ${item.buy}`);
+				this.log(`${colors.bold('SELL:                  ')} ${item.sell}`);
+
+				const preFeePerUnit = item.sell - item.buy;
+				const preFeeProfit = item.sell / item.buy;
+				//this.log(`Pre-fees Unit:          ${(preFeeProfit > 1) ? colors.green(preFeePerUnit.toFixed(10)) : colors.red(preFeePerUnit.toFixed(10))}`);
+				//this.log(`Pre-fees Ratio:         ${(preFeeProfit > 1) ? colors.green(preFeeProfit.toFixed(4)) : colors.red(preFeeProfit.toFixed(4))}`);
+				
+
+				const txnFeePerUnit = parseFloat(item.sell) * parseFloat(this.options.config.txnFee);
+				const postFeePerUnit = preFeePerUnit - txnFeePerUnit;
+				const postFeeProfit = item.sell / (parseFloat(item.buy) + txnFeePerUnit);
+				//this.log(`Transaction Fee / Unit: ${txnFeePerUnit.toFixed(10)}`);
+				//this.log(`Post-fees Unit:         ${(postFeeProfit > 1) ? colors.green(postFeePerUnit.toFixed(10)) : colors.red(postFeePerUnit.toFixed(10))}`);
+				this.log(`Post-fees Ratio:        ${(postFeeProfit > 1) ? colors.bold.green(postFeeProfit.toFixed(4)) : colors.bold.red(postFeeProfit.toFixed(4))}`);
+				this.log();	
+
+				totalProfit.push(postFeeProfit);
+			});
+
+			let overallProfit = 0;
+			totalProfit.forEach(entry => overallProfit = overallProfit + entry);
+			overallProfit = parseFloat(overallProfit) / totalProfit.length;
+			this.log(`${colors.bold('Overall Profit:')}         ${(overallProfit > 1) ? colors.bold.green(overallProfit.toFixed(4)) : colors.bold.red(overallProfit.toFixed(4))}`);
+		}
+
+		this.log();	
 	}
 
 	log() {

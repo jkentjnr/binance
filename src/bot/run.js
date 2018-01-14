@@ -10,6 +10,7 @@ parser.addArgument(['-f', '--simFrom'], { help: 'The start date to simulate from
 parser.addArgument(['-t', '--simTo'], { help: 'The end date to simulate to.' });
 parser.addArgument(['-n', '--name'], { help: 'The name of the processor (for logging)' });
 parser.addArgument(['-l', '--sleep'], { help: 'Number of seconds to sleep between bot executions', type:'int', defaultValue: 3 });
+parser.addArgument(['-x', '--txnFee'], { help: 'The transaction fee taken by the exchange. Use BNB to reduce to 50%.', type:'float', defaultValue: 0.005 });
 const args = parser.parseArgs();
 
 (async () => {

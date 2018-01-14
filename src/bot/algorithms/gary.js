@@ -35,6 +35,39 @@ export default class GaryBot {
 	async sell(options) {
 		this.log(`Mode: ${colors.magenta('EVALUATE SELL')}`);
 
+		const { symbol } = options;
+		const { time } = options.state;
+
+		const firstOffset = 30;
+		const firstRequiredDecrease = 0.9985;
+		const secondOffset = 90;
+		const secondRequiredDecrease = 0.9958;
+
+		const currentPrice = await binanceHelper.getPriceAtTime(this.dataProvider, symbol, time);
+		this.log('CURRENT PRICE:', currentPrice);
+
+		const firstStartRange = new Date(time - (firstOffset * 1000));
+		const firstPrice = await binanceHelper.getPriceAtTime(this.dataProvider, symbol, firstStartRange);
+		const firstAction = firstRequiredDecrease >= (currentPrice/firstPrice);
+		this.log(`1ST PRICE:     ${firstPrice} | ${(currentPrice/firstPrice).toFixed(4)} | ${(firstAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
+
+		const secondStartRange = new Date(time - (secondOffset * 1000));
+		const secondPrice = await binanceHelper.getPriceAtTime(this.dataProvider, symbol, secondStartRange);
+		const secondAction = secondRequiredDecrease >= (currentPrice/secondPrice);
+		this.log(`2ND PRICE:     ${secondPrice} | ${(currentPrice/secondPrice).toFixed(4)} | ${(secondAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
+
+		// TODO: Evaluate an increase has occurred.
+		// Factor in arbitrage fees & buy price protection.
+
+		this.log(`RECOMMEND:     ${(firstAction && secondAction) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')}`);
+		if (firstAction && secondAction) {
+			options.state.evaluation = {
+				action: 'sell',
+				price: currentPrice,
+				buy: options.state.order.price,
+			};
+		}
+
 		return options;
 	}
 
