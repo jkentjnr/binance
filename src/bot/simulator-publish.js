@@ -39,6 +39,25 @@ const sell_timedProtectOffsetList = Array.from(Array(8).keys()).map(i => 25 + (i
 const sell_timedProtectDecreaseList = Array.from(Array(20).keys()).map(i => 0.996 - (i * 0.0003));
 */
 
+function shuffle(array) {
+  var currentIndex = array.length, temporaryValue, randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
+
 (async () => {
 
 	await queueProvider.initialise(queueName);
@@ -111,8 +130,6 @@ const sell_timedProtectDecreaseList = Array.from(Array(20).keys()).map(i => 0.99
 			`S_${sell_protectDecrease.toFixed(4)}_${sell_firstOffset}_${sell_firstRequiredDecrease.toFixed(4)}_${sell_secondOffset}_${sell_secondRequiredDecrease.toFixed(4)}_${sell_timedProtectOffset}_${sell_timedProtectDecrease.toFixed(4)}_` +
 			`Z_${new Date().getTime()}`;
 
-		console.log(routineCount, name);
-
 		const args = {
 			symbol: symbol,
 			bot: bot,
@@ -184,9 +201,14 @@ const sell_timedProtectDecreaseList = Array.from(Array(20).keys()).map(i => 0.99
 	console.log('Routine Count:', routineCount);
 	//console.log('Bucket:', bucket);
 
-	simulationList.reverse();
-	for (let i = 0; i < simulationList.length; i++) {
-		await queueProvider.publish(simulationList[i]);
+	const lst = shuffle(simulationList);//.reverse();
+
+
+
+	for (let i = 0; i < lst.length; i++) {
+		await queueProvider.publish(lst[i]);
+
+		console.log(i, lst[i].name);
 
 		//const engine = new BotEngine(args);
 		//await engine.execute();
