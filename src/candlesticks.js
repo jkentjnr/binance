@@ -10,7 +10,7 @@ const description = 'Binance Candlesticks Loader';
 
 var parser = new ArgumentParser({ description, version: '0.0.1', addHelp:true });
 parser.addArgument(['-p', '--period'], { help: 'The period the candlestick is for.', defaultValue: '1m', choices: ['1m','3m','5m','15m','30m','1h','2h','4h','6h','8h','12h','1d','3d','1w','1M'], dest: 'period' });
-parser.addArgument(['-s', '--symbol'], { help: 'The binance pair eg. ETHBTC. Defaults to config file symbols.', choices: ['1m','3m','5m','15m','30m','1h','2h','4h','6h','8h','12h','1d','3d','1w','1M'] });
+parser.addArgument(['-s', '--symbol'], { help: 'The binance pair eg. ETHBTC. Defaults to config file symbols.' });
 const args = parser.parseArgs();
 
 const platform = 'BN';

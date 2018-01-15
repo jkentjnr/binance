@@ -3,7 +3,7 @@ import amqp from 'amqplib/callback_api';
 import config from '../../config.json';
 
 class rabbitMqProvider { 
-  initialise(q) {
+  initialise(q, prefetch = 100) {
     var that = this;
     that.queueName = q;
 
@@ -14,7 +14,7 @@ class rabbitMqProvider {
         conn.createChannel(function(err, ch) {
           if (err) { reject(err); return; }
 
-          ch.prefetch(100);
+          ch.prefetch(prefetch);
           ch.assertQueue(that.queueName, { durable: true });
 
           that.channel = ch;

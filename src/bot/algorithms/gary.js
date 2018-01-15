@@ -1,6 +1,7 @@
 import now from 'performance-now';
 import colors from 'colors/safe';
 import moment from 'moment';
+import get from 'lodash.get';
 import binanceHelper from './binanceHelper';
 
 export default class GaryBot {
@@ -37,34 +38,56 @@ export default class GaryBot {
 
 		const { symbol } = options;
 		const { time } = options.state;
+		const { buy: buyPrice, buyTime } = options.state.order;
 
-		const firstOffset = 30;
-		const firstRequiredDecrease = 0.9985;
-		const secondOffset = 90;
-		const secondRequiredDecrease = 0.9958;
+		let behaviour = null;
 
-		const currentPrice = await binanceHelper.getPriceAtTime(this.dataProvider, symbol, time);
-		this.log('CURRENT PRICE:', currentPrice);
+		const protectDecrease = parseFloat(get(options, 'parameters.sell.protect.base') || 0.99);
+
+		const firstOffset = parseInt(get(options, 'parameters.sell.first.offset') || 30);
+		const firstRequiredDecrease = parseFloat(get(options, 'parameters.sell.first.change') || 0.9985);
+		const secondOffset = parseInt(get(options, 'parameters.sell.second.offset') || 90);
+		const secondRequiredDecrease = parseFloat(get(options, 'parameters.sell.second.change') || 0.9958);
+
+		const timedProtectOffset = parseFloat(get(options, 'parameters.sell.protect.timed.offset') || 30);
+		const timedProtectDecrease = parseFloat(get(options, 'parameters.sell.protect.timed.base') || 0.996);
+
+		const currentPrice = parseFloat(await binanceHelper.getPriceAtTime(this.dataProvider, symbol, time));
+		this.log('CURRENT PRICE:', currentPrice.toFixed(10));
+
+		const protectPrice = (buyPrice * protectDecrease);
+		const protectAction = currentPrice < protectPrice;
+		this.log(`1ST PROTECT:   ${protectPrice.toFixed(10)}          | ${(protectAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
 
 		const firstStartRange = new Date(time - (firstOffset * 1000));
-		const firstPrice = await binanceHelper.getPriceAtTime(this.dataProvider, symbol, firstStartRange);
+		const firstPrice = parseFloat(await binanceHelper.getPriceAtTime(this.dataProvider, symbol, firstStartRange));
 		const firstAction = firstRequiredDecrease >= (currentPrice/firstPrice);
-		this.log(`1ST PRICE:     ${firstPrice} | ${(currentPrice/firstPrice).toFixed(4)} | ${(firstAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
+		this.log(`1ST PRICE:     ${firstPrice.toFixed(10)} | ${(currentPrice/firstPrice).toFixed(4)} | ${(firstAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
 
 		const secondStartRange = new Date(time - (secondOffset * 1000));
-		const secondPrice = await binanceHelper.getPriceAtTime(this.dataProvider, symbol, secondStartRange);
+		const secondPrice = parseFloat(await binanceHelper.getPriceAtTime(this.dataProvider, symbol, secondStartRange));
 		const secondAction = secondRequiredDecrease >= (currentPrice/secondPrice);
-		this.log(`2ND PRICE:     ${secondPrice} | ${(currentPrice/secondPrice).toFixed(4)} | ${(secondAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
+		this.log(`2ND PRICE:     ${secondPrice.toFixed(10)} | ${(currentPrice/secondPrice).toFixed(4)} | ${(secondAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
 
-		// TODO: Evaluate an increase has occurred.
-		// Factor in arbitrage fees & buy price protection.
+		let timedProtectAction = false;
+		if (buyTime && timedProtectDecrease && timedProtectOffset) {
+			const timedProtectPrice = (buyPrice * timedProtectDecrease);
+			timedProtectAction = (time >= new Date(buyTime + (timedProtectOffset * 1000))) && currentPrice < timedProtectPrice;
+			this.log(`TIME PROTECT:  ${timedProtectPrice.toFixed(10)}          | ${(timedProtectAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
+		}
+
+		if (!behaviour && protectAction) behaviour = 'Base Protect Price';
+		if (!behaviour && (firstAction && secondAction)) behaviour = 'Dual Range Breach';
+		if (!behaviour && timedProtectAction) behaviour = 'Timed Protect Price';
 
 		this.log(`RECOMMEND:     ${(firstAction && secondAction) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')}`);
-		if (firstAction && secondAction) {
+		if (behaviour) {
 			options.state.evaluation = {
 				action: 'sell',
+				volume: 1,
 				price: currentPrice,
-				buy: options.state.order.price,
+				time: new Date(time),
+				behaviour,
 			};
 		}
 
@@ -78,10 +101,12 @@ export default class GaryBot {
 		const { symbol } = options;
 		const { time } = options.state;
 
-		const firstOffset = 30;
-		const firstRequiredIncrease = 1.0015;
-		const secondOffset = 90;
-		const secondRequiredIncrease = 1.0042;
+		let behaviour = null;
+
+		const firstOffset = parseInt(get(options, 'parameters.buy.first.offset') || 30);
+		const firstRequiredIncrease = parseFloat(get(options, 'parameters.buy.first.change') || 1.0015);
+		const secondOffset = parseInt(get(options, 'parameters.buy.second.offset') || 90);
+		const secondRequiredIncrease = parseFloat(get(options, 'parameters.buy.second.change') || 1.0042);
 
 		const currentPrice = await binanceHelper.getPriceAtTime(this.dataProvider, symbol, time);
 		this.log('CURRENT PRICE:', currentPrice);
@@ -96,11 +121,16 @@ export default class GaryBot {
 		const secondAction = secondRequiredIncrease <= (currentPrice/secondPrice);
 		this.log(`2ND PRICE:     ${secondPrice} | ${(currentPrice/secondPrice).toFixed(4)} | ${(secondAction) ? colors.green('ACT') : colors.red('NO ACTION')}`);
 		
+		 if (!behaviour && (firstAction && secondAction)) behaviour = 'Dual Range Breach';
+
 		this.log(`RECOMMEND:     ${(firstAction && secondAction) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')}`);
 		if (firstAction && secondAction) {
 			options.state.evaluation = {
 				action: 'buy',
-				price: currentPrice
+				volume: 1,
+				price: currentPrice,
+				time: new Date(time),
+				behaviour,
 			};
 		}
 
