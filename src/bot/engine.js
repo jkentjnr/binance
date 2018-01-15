@@ -32,6 +32,9 @@ export default class BotEngine {
 		this.log(`Transaction Fee: ${colors.bold(txnFee)}`);
 		this.log();
 
+		// Set an instance of the dataProvider.
+		this.dataProvider = dataProvider;
+
 		// Determine if simulating.
 		let simFrom = null;
 		let simTo = null;
@@ -90,7 +93,7 @@ export default class BotEngine {
 
 	async execute() {
 		// Initialise data store and models
-		await dataProvider.initialise(config.rebuild || false, dataProviderOptions);
+		await this.dataProvider.initialise(config.rebuild || false, dataProviderOptions);
 		this.log();
 
 		await this.startDataLog();
@@ -107,7 +110,7 @@ export default class BotEngine {
 		this.outputTrades();
 		await this.endDataLog();
 
-		await dataProvider.close();
+		await this.dataProvider.close();
 	}
 
 	async executeSimulation() {
@@ -118,11 +121,12 @@ export default class BotEngine {
 		// Set the start time to the simulated start time.
 		this.options.state.time = this.options.simulation.start;
 
+		// Create the bot.
+		const bot = new Processor(this.dataProvider);
+		await bot.initialise(this.options, this._log);
+
 		while (this.options.state.time < this.options.simulation.end) {
 			this.log(`Executing bot: ${this.options.bot}`);
-			
-			const bot = new Processor(dataProvider);
-			bot._log = this._log;
 
 			this.options = await bot.execute(this.options);
 			
@@ -395,7 +399,7 @@ export default class BotEngine {
 			startExecution: new Date()
 		};
 
-		await dataProvider.bot.upsert(msg);
+		await this.dataProvider.bot.upsert(msg);
 
 		if (Object.keys(flatParameterList).length > 0) {
 			const params = Object.keys(flatParameterList).map(key => ({
@@ -404,7 +408,7 @@ export default class BotEngine {
 				value: (flatParameterList[key] && flatParameterList[key].toString) ? flatParameterList[key].toString() : flatParameterList[key]
 			}));
 
-			await dataProvider.bot.bulkCreateParameters(params);
+			await this.dataProvider.bot.bulkCreateParameters(params);
 		}
 
 	}
@@ -425,12 +429,12 @@ export default class BotEngine {
 			profitTradePercentage: data.profitTradePercentage,
 		};
 
-		await dataProvider.bot.upsert(msg);
+		await this.dataProvider.bot.upsert(msg);
 
 		const trades = data.trades.map(item => 
 			Object.assign({}, item, { botKey: this.options.batch }));
 
-		await dataProvider.bot.bulkCreateTrades(trades);
+		await this.dataProvider.bot.bulkCreateTrades(trades);
 
 	}
 

@@ -8,8 +8,8 @@ const bot = 'gary';
 const startingBalance = 1;
 const txnFee = 0.005;
 const sleep = 3;
-const fromDate = new Date(2018, 0, 14, 9, 0, 0, 0); // '20180114T090000'
-const toDate = new Date(2018, 0, 15, 13, 0, 0, 0);  // '20180115T130000'
+const fromDate = new Date(2018, 0, 14, 16, 45, 0, 0); // '20180114T090000'
+const toDate = new Date(2018, 0, 14, 17, 30, 0, 0);  // '20180115T130000'
 
 (async () => {
 
@@ -20,20 +20,20 @@ const toDate = new Date(2018, 0, 15, 13, 0, 0, 0);  // '20180115T130000'
 	const simulationList = [];
 	const bucket = {};
 
-	const buy_firstOffset = 15;
-	const buy_firstRequiredIncrease = 1.005; //1.0015;
-	const buy_secondOffset = 25;
-	const buy_secondRequiredIncrease = 1.046;
+	const buy_firstOffset = 24;
+	const buy_firstRequiredIncrease = 1.0039; //1.011; //1.0015;
+	const buy_secondOffset = 32;
+	const buy_secondRequiredIncrease = 1.0045; //1.046;
 
 	const sell_protectDecrease = 0.9875;
 	
-	const sell_firstOffset = 24;
+	const sell_firstOffset = 20;
 	const sell_firstRequiredDecrease = 0.995;
 	const sell_secondOffset = 32;
 	const sell_secondRequiredDecrease = 0.99;
 
-	const sell_timedProtectOffset = 44;
-	const sell_timedProtectDecrease = 0.995;
+	const sell_timedProtectOffset = 20;
+	const sell_timedProtectDecrease = 0.9925;
 
 	/* --------------------------- */
 

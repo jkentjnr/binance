@@ -9,6 +9,27 @@ export default class GaryBot {
 		this.dataProvider = dataProvider;
 	}
 
+	async initialise(options, logger) {
+		this.logger = logger;
+
+		if (options.simulation.enabled) {
+			// Override trades on data provider.
+
+			const dataset = await this.dataProvider.trades.getByDateTimeRange(options.symbol, options.simulation.start, options.simulation.end);
+
+			this.dataProvider.trades.getNext = async (symbol, dt, desc) => {
+				//console.log('test', symbol, dt, desc);
+				const idx = dataset.findIndex(item => item.transactionDateTime >= dt);
+				//console.log(dt, dataset[idx].transactionDateTime);
+				return (desc) 
+					? (dataset[idx].transactionDateTime === dt) ? [dataset[idx]] : ((idx > 0) ? [dataset[idx-1]] : [dataset[idx]])
+					: [dataset[idx]];
+			};
+
+		}
+
+	}
+
 	async execute(options) {
 
 		this.startTime = now();
@@ -138,10 +159,7 @@ export default class GaryBot {
 	}
 
 	log() {
-		this._log(colors.black.bgYellow('  GaryBot  '), ' ', ...arguments);
+		this.logger(colors.black.bgYellow('  GaryBot  '), ' ', ...arguments);
 	}
 
-	_log() {
-		console.log(...arguments);
-	}
 }
