@@ -10,7 +10,23 @@ const txnFee = 0.005;
 const sleep = 3;
 const fromDate = new Date(2018, 0, 14, 9, 0, 0, 0); // '20180114T090000'
 const toDate = new Date(2018, 0, 15, 13, 0, 0, 0);  // '20180115T130000'
+//const fromDate = new Date(2018, 0, 14, 16, 45, 0, 0); // '20180114T090000'
+//const toDate = new Date(2018, 0, 14, 17, 30, 0, 0);  // '20180115T130000'
 
+const buy_firstOffsetList = Array.from(Array(4).keys()).map(i => 8 + (i * 4));
+const buy_firstRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .0005 + (i * 0.0011));
+const buy_secondOffsetList = Array.from(Array(4).keys()).map(i => 12 + (i * 4));
+const buy_secondRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .0005 + (i * 0.0015));
+
+const sell_protectDecreaseList = Array.from(Array(4).keys()).map(i => 1 - 0.002 - (i * 0.003));
+const sell_firstOffsetList = Array.from(Array(4).keys()).map(i => 8 + (i * 4));
+const sell_firstRequiredDecreaseList = Array.from(Array(5).keys()).map(i => 1 - .0005 - (i * 0.0011))
+const sell_secondOffsetList = Array.from(Array(4).keys()).map(i => 12 + (i * 5));
+const sell_secondRequiredDecreaseList = Array.from(Array(5).keys()).map(i => 1 - .0005 - (i * 0.0015))
+const sell_timedProtectOffsetList = [240]; //Array.from(Array(3).keys()).map(i => 20 + (i * 12));
+const sell_timedProtectDecreaseList = Array.from(Array(1).keys()).map(i => 1 - 0.002 - (i * 0.003));
+
+/*
 const buy_firstOffsetList = Array.from(Array(5).keys()).map(i => 12 + (i * 4));
 const buy_firstRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .002 + (i * 0.003));
 const buy_secondOffsetList = Array.from(Array(4).keys()).map(i => 16 + (i * 8));
@@ -23,20 +39,6 @@ const sell_secondOffsetList = Array.from(Array(5).keys()).map(i => 16 + (i * 4))
 const sell_secondRequiredDecreaseList = Array.from(Array(5).keys()).map(i => 1 - .01 - (i * 0.012));
 const sell_timedProtectOffsetList = Array.from(Array(3).keys()).map(i => 20 + (i * 12));
 const sell_timedProtectDecreaseList = Array.from(Array(4).keys()).map(i => 1 - 0.002 - (i * 0.003));
-
-/*
-const buy_firstOffsetList = Array.from(Array(8).keys()).map(i => 16 + (i * 2));
-const buy_firstRequiredIncreaseList = Array.from(Array(20).keys()).map(i => 1.004 + (i * 0.002));
-const buy_secondOffsetList = Array.from(Array(12).keys()).map(i => 16 + (i * 4));
-const buy_secondRequiredIncreaseList = Array.from(Array(30).keys()).map(i => 1.006 + (i * 0.003));
-
-const sell_protectDecreaseList = Array.from(Array(20).keys()).map(i => 0.996 - (i * 0.0003));
-const sell_firstOffsetList = Array.from(Array(8).keys()).map(i => 16 + (i * 2));
-const sell_firstRequiredDecreaseList = Array.from(Array(20).keys()).map(i => 0.999 - (i * 0.0003));
-const sell_secondOffsetList = Array.from(Array(12).keys()).map(i => 16 + (i * 6));
-const sell_secondRequiredDecreaseList = Array.from(Array(20).keys()).map(i => 0.997 - (i * 0.0004))
-const sell_timedProtectOffsetList = Array.from(Array(8).keys()).map(i => 25 + (i * 4));
-const sell_timedProtectDecreaseList = Array.from(Array(20).keys()).map(i => 0.996 - (i * 0.0003));
 */
 
 function shuffle(array) {
@@ -207,7 +209,6 @@ function shuffle(array) {
 
 	for (let i = 0; i < lst.length; i++) {
 		await queueProvider.publish(lst[i]);
-
 		console.log(i, lst[i].name);
 
 		//const engine = new BotEngine(args);
