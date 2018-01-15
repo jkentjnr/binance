@@ -11,8 +11,8 @@ const sleep = 3;
 const fromDate = new Date(2018, 0, 14, 9, 0, 0, 0); // '20180114T090000'
 const toDate = new Date(2018, 0, 15, 13, 0, 0, 0);  // '20180115T130000'
 
-const buy_firstOffsetList = Array.from(Array(5).keys()).map(i => 8 + (i * 4));
-const buy_firstRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .005 + (i * 0.008));
+const buy_firstOffsetList = Array.from(Array(5).keys()).map(i => 12 + (i * 4));
+const buy_firstRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .005 + (i * 0.006));
 const buy_secondOffsetList = Array.from(Array(4).keys()).map(i => 16 + (i * 8));
 const buy_secondRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .01 + (i * 0.012));
 
