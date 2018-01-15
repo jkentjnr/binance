@@ -1,9 +1,15 @@
 import BotEngine from './engine';
 import queueProvider from '../lib/queueProvider';
 
+import colors from 'colors/safe';
+
 import config from '../../config.json';
 
 const queueName = 'simulations';
+
+function log() {
+	console.log(colors.black.bgRed(' Simulator '), ' ', ...arguments);
+}
 
 (async () => {
 
@@ -11,9 +17,16 @@ const queueName = 'simulations';
 
 	queueProvider.subscribe(async (msg) => {
 		try {
-			// console.log(`msg`, msg);
+			const start = new Date();
+			log(msg.name, start);
+			
 			const engine = new BotEngine(msg);
+			engine._log = () => { return; };
+
 			await engine.execute();
+
+			const end = new Date();
+			log(msg.name, end.getTime() - start.getTime());
 		}
 		catch(e) {
 			console.log(e);

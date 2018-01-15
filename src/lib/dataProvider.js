@@ -36,10 +36,11 @@ class mySqlProvider {
         'bot', {
           key: { type: Sequelize.STRING(200), primaryKey: true },
           symbol: { type: Sequelize.STRING(10) },
+          bot: { type: Sequelize.STRING(10) },
           simulation: { type: Sequelize.BOOLEAN, defaultValue: false },
           startSimulation: { type: Sequelize.DATE },
           endSimulation: { type: Sequelize.DATE },
-          bot: { type: Sequelize.STRING(10) },
+          executionTime: { type: Sequelize.BIGINT },
           startBalance: { type: Sequelize.DECIMAL(18,10) },
           endBalance: { type: Sequelize.DECIMAL(18,10) },
           endCoins: { type: Sequelize.DECIMAL(18,10) },

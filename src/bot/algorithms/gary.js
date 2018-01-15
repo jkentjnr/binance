@@ -138,6 +138,10 @@ export default class GaryBot {
 	}
 
 	log() {
-		console.log(colors.black.bgYellow('  GaryBot  '), ' ', ...arguments);
+		this._log(colors.black.bgYellow('  GaryBot  '), ' ', ...arguments);
+	}
+
+	_log() {
+		console.log(...arguments);
 	}
 }

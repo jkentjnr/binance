@@ -45,6 +45,7 @@ const sell_timedProtectDecreaseList = Array.from(Array(20).keys()).map(i => 0.99
 
 	let routineCount = 0;
 
+	const simulationList = [];
 	const bucket = {};
 
 	buy_firstOffset_loop:
@@ -152,11 +153,7 @@ const sell_timedProtectDecreaseList = Array.from(Array(20).keys()).map(i => 0.99
 			}
 		}
 
-		await queueProvider.publish(args);
-
-		//const engine = new BotEngine(args);
-		//await engine.execute();
-
+		simulationList.push(args);
 
 		routineCount++;
 
@@ -186,6 +183,14 @@ const sell_timedProtectDecreaseList = Array.from(Array(20).keys()).map(i => 0.99
 
 	console.log('Routine Count:', routineCount);
 	//console.log('Bucket:', bucket);
+
+	simulationList.reverse();
+	for (let i = 0; i < simulationList.length; i++) {
+		await queueProvider.publish(simulationList[i]);
+
+		//const engine = new BotEngine(args);
+		//await engine.execute();
+	}
 
 })();
 

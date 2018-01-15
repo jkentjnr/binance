@@ -73,6 +73,11 @@ export default class BotEngine {
 				start: simFrom,
 				end: simTo,
 			},
+			timers: {
+				start: new Date(),
+				end: null,
+				timespan: null,
+			},
 			parameters: {}
 		};
 
@@ -95,6 +100,10 @@ export default class BotEngine {
 		else
 			await this.executeStream();
 
+		this.options.timers.end = new Date();
+		this.options.timers.timespan = this.options.timers.end.getTime() - this.options.timers.start.getTime();
+		this.options.bank.end = this.options.bank.current;
+
 		this.outputTrades();
 		await this.endDataLog();
 
@@ -111,7 +120,10 @@ export default class BotEngine {
 
 		while (this.options.state.time < this.options.simulation.end) {
 			this.log(`Executing bot: ${this.options.bot}`);
+			
 			const bot = new Processor(dataProvider);
+			bot._log = this._log;
+
 			this.options = await bot.execute(this.options);
 			
 			const hasInstruction = await this.evaluateInstruction();
@@ -126,8 +138,6 @@ export default class BotEngine {
 				this.options.state.time.setSeconds(this.options.state.time.getSeconds() + 1);
 			}
 		}
-
-		this.options.bank.end = this.options.bank.current;
 
 	}
 
@@ -364,7 +374,11 @@ export default class BotEngine {
 	}
 
 	log() {
-		console.log(colors.black.bgCyan(' BotEngine '), ' ', ...arguments);
+		this._log(colors.black.bgCyan(' BotEngine '), ' ', ...arguments);
+	}
+
+	_log() {
+		console.log(...arguments);
 	}
 
 	async startDataLog() {
@@ -400,8 +414,9 @@ export default class BotEngine {
 
 		const msg = {
 			key: this.options.batch,
-			endExecution: new Date(),
+			endExecution: this.options.timers.end,
 			endBalance: this.options.bank.end,
+			executionTime: this.options.timers.timespan,
 			endCoins: this.options.state.coins,
 			compoundProfit: data.compoundingProfit,
 			tradeCount: data.trades.length,
