@@ -14,15 +14,15 @@ const toDate = new Date(2018, 0, 15, 13, 0, 0, 0);  // '20180115T130000'
 //const toDate = new Date(2018, 0, 14, 17, 30, 0, 0);  // '20180115T130000'
 
 const buy_firstOffsetList = Array.from(Array(4).keys()).map(i => 8 + (i * 4));
-const buy_firstRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .0005 + (i * 0.0011));
+const buy_firstRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .0005 + (i * 0.0015));
 const buy_secondOffsetList = Array.from(Array(4).keys()).map(i => 12 + (i * 4));
-const buy_secondRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .0005 + (i * 0.0015));
+const buy_secondRequiredIncreaseList = Array.from(Array(5).keys()).map(i => 1 + .0005 + (i * 0.0019));
 
 const sell_protectDecreaseList = Array.from(Array(4).keys()).map(i => 1 - 0.002 - (i * 0.003));
 const sell_firstOffsetList = Array.from(Array(4).keys()).map(i => 8 + (i * 4));
-const sell_firstRequiredDecreaseList = Array.from(Array(5).keys()).map(i => 1 - .0005 - (i * 0.0011))
+const sell_firstRequiredDecreaseList = Array.from(Array(5).keys()).map(i => 1 - .0005 - (i * 0.0015))
 const sell_secondOffsetList = Array.from(Array(4).keys()).map(i => 12 + (i * 5));
-const sell_secondRequiredDecreaseList = Array.from(Array(5).keys()).map(i => 1 - .0005 - (i * 0.0015))
+const sell_secondRequiredDecreaseList = Array.from(Array(5).keys()).map(i => 1 - .0005 - (i * 0.0019))
 const sell_timedProtectOffsetList = [240]; //Array.from(Array(3).keys()).map(i => 20 + (i * 12));
 const sell_timedProtectDecreaseList = Array.from(Array(1).keys()).map(i => 1 - 0.002 - (i * 0.003));
 
