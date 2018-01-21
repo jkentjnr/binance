@@ -1,8 +1,11 @@
 import now from 'performance-now';
 import colors from 'colors/safe';
 import moment from 'moment';
+import set from 'lodash.set';
+import setWith from 'lodash.setwith';
 import get from 'lodash.get';
 import binanceHelper from './binanceHelper';
+import memoryDataProvider from './memoryDataProvider';
 
 export default class GaryBot {
 	constructor(dataProvider) {
@@ -15,19 +18,12 @@ export default class GaryBot {
 		if (options.simulation.enabled) {
 			// Override trades on data provider.
 
-			const dataset = await this.dataProvider.trades.getByDateTimeRange(options.symbol, options.simulation.start, options.simulation.end);
+			const start = moment(options.simulation.start).subtract(1, "hours").toDate();
+			const end = moment(options.simulation.end).add(1, "hours").toDate();
 
-			this.dataProvider.trades.getNext = async (symbol, dt, desc) => {
-				//console.log('test', symbol, dt, desc);
-				const idx = dataset.findIndex(item => item.transactionDateTime >= dt);
-				//console.log(dt, dataset[idx].transactionDateTime);
-				return (desc) 
-					? (dataset[idx].transactionDateTime === dt) ? [dataset[idx]] : ((idx > 0) ? [dataset[idx-1]] : [dataset[idx]])
-					: [dataset[idx]];
-			};
+			this.dataProvider.trades.getNext = await memoryDataProvider.mockTradesGetNext(this.dataProvider, options.symbol, start, end);
 
 		}
-
 	}
 
 	async execute(options) {

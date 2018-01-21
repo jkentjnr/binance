@@ -125,6 +125,7 @@ export default class BotEngine {
 		const bot = new Processor(this.dataProvider);
 		await bot.initialise(this.options, this._log);
 
+		let counter = 0;
 		while (this.options.state.time < this.options.simulation.end) {
 			this.log(`Executing bot: ${this.options.bot}`);
 
@@ -141,6 +142,13 @@ export default class BotEngine {
 				this.log(`Simulate 1 second for executing order.`);
 				this.options.state.time.setSeconds(this.options.state.time.getSeconds() + 1);
 			}
+
+			if (counter > 60) {
+				await this.sleep(100);
+				counter = 0;
+			}
+			else
+				counter++;
 		}
 
 	}
@@ -436,6 +444,10 @@ export default class BotEngine {
 
 		await this.dataProvider.bot.bulkCreateTrades(trades);
 
+	}
+
+	sleep(duration) {
+		return new Promise(resolve => setTimeout(() => resolve(), duration));
 	}
 
 }

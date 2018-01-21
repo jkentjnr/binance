@@ -21,7 +21,7 @@ function log() {
 			log(msg.name, start);
 			
 			const engine = new BotEngine(msg);
-			engine._log = () => { return; };
+			//engine._log = () => { return; };
 
 			await engine.execute();
 

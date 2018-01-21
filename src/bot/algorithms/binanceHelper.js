@@ -41,4 +41,11 @@ export default class BinanceHelper {
 		return (result && result.length > 0) ? result[result.length-1] : null
 	}
 
+
+	static async () {
+
+
+
+	}	
+
 }

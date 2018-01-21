@@ -1,5 +1,4 @@
 import BotEngine from './engine';
-import queueProvider from '../lib/queueProvider';
 
 const queueName = 'simulations';
 
@@ -9,11 +8,9 @@ const startingBalance = 1;
 const txnFee = 0.005;
 const sleep = 3;
 const fromDate = new Date(2018, 0, 14, 16, 45, 0, 0); // '20180114T090000'
-const toDate = new Date(2018, 0, 14, 17, 30, 0, 0);  // '20180115T130000'
+const toDate = new Date(2018, 0, 15, 17, 30, 0, 0);  // '20180115T130000'
 
 (async () => {
-
-	await queueProvider.initialise(queueName);
 
 	let routineCount = 0;
 

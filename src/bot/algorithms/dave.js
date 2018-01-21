@@ -3,6 +3,7 @@ import colors from 'colors/safe';
 import moment from 'moment';
 import get from 'lodash.get';
 import binanceHelper from './binanceHelper';
+import memoryDataProvider from './memoryDataProvider';
 
 export default class DaveBot {
 	constructor(dataProvider) {
@@ -16,17 +17,9 @@ export default class DaveBot {
 			// Override trades on data provider.
 
 			const offsetHours = parseInt(get(options, 'parameters.sample') || 8); // Hours
-			const offsetDate = new Date(options.simulation.start);
-			offsetDate.setHours(options.simulation.start.getHours() - offsetHours);
+			const offsetDate = moment(options.simulation.start).subtract(offsetHours, 'hours').toDate();
 
-			const dataset = await this.dataProvider.trades.getByDateTimeRange(options.symbol, offsetDate, options.simulation.end);
-
-			this.dataProvider.trades.getByDateTimeRange = async (symbol, firstDate, lastDate) => {
-				const start = dataset.findIndex(item => item.transactionDateTime >= firstDate);
-				const end = dataset.findIndex(item => item.transactionDateTime > lastDate);
-
-				return dataset.slice(start, end-1);
-			};
+			this.dataProvider.trades.getByDateTimeRange = await memoryDataProvider.mockTradesGetByDateTimeRange(this.dataProvider, options.symbol, offsetDate, options.simulation.end);
 		}
 	}
 
@@ -101,11 +94,12 @@ export default class DaveBot {
 		this.log(`LONG EMA:      ${dataset.emaLongPrice.toFixed(10)}`);
 	
 		if (!behaviour && (dataset.emaShortPrice > dataset.emaLongPrice)) behaviour = 'EMA Short > Long';
-		this.log(`RECOMMEND:     ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')}`);
+
+		this.log(`RECOMMEND:     ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')} ${(supress === true) ? '(Suppression Active)' : ''}`);
 
 		if (!hasExecuted) {
 			// Initial EMA is to buy - we need a crossover so supress buy.
-			options.state.supress = (behaviour);
+			options.state.supress = (!!behaviour);
 			options.state.hasExecuted = true;
 			return options;
 		}
