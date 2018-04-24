@@ -16,6 +16,7 @@ export default class VenomBot {
 
 	async initialise(options, logger) {
 		this.logger = logger;
+		this.baseSymbol = options.baseSymbol || 'BTCUSD';
 
 		if (!options.wallet)
 			throw new Error(`There is no configured wallet.`);
@@ -60,6 +61,7 @@ export default class VenomBot {
 		this.log(`-------------------------------------------------`);
 		this.log(`Instruction Received`);
 		this.log(`Evaluate Period - ${moment(options.state.time).format('Do MMM YY h:mm:ss a')}`);
+		this.log();
 
 		// ---------------------------------------------
 		// Determine instructions.
@@ -84,18 +86,19 @@ export default class VenomBot {
 		else {
 			options.state.instruction.base = ACTION_BUY;
 			options.state.instruction.symbol = ACTION_NONE;
+			await this.getPriceAndMovingAverage(options, options.symbol, ACTION_BUY);
 		}
 
 		// ---------------------------------------------
 		// Execute Instructions
 
 		if (options.state.instruction.symbol === ACTION_SELL) {
-			const didSell = await this.sell(this.baseSymbol, options);
+			const didSell = await this.sell(options.symbol, options);
 			if (didSell) options.state.instruction.base = ACTION_SELL;
 		}
 
 		if (options.state.instruction.base === ACTION_SELL) {
-			await this.sell(options.symbol, options);
+			await this.sell(this.baseSymbol, options);
 		}
 		
 		if (options.state.instruction.base === ACTION_BUY) {
@@ -109,6 +112,10 @@ export default class VenomBot {
 
 		// ---------------------------------------------
 
+		await this.writeLog(options);
+
+		// ---------------------------------------------
+
 		this.endTime = now();
 		this.log(`Processing Time - ${((this.endTime - this.startTime) / 1000).toFixed(4)} second(s).`);
 		this.log(`-------------------------------------------------`);
@@ -116,18 +123,8 @@ export default class VenomBot {
 		return options;
 	}
 
-	getWallet(options, symbol, action = ACTION_SELL) {
-		for (const key in options.wallet) {
-			const wallet = options.wallet[key];
-			if (action === ACTION_BUY && wallet.buy && wallet.buy.includes(symbol)) return wallet;
-			if (action === ACTION_SELL && wallet.sell && wallet.sell.includes(symbol)) return wallet;
-		}
-
-		throw new Error(`Wallet not found for ${action} ${symbol}`);
-	}
-
-	async execute(options, executeOrderCallback) {
-		const { orders } = options.state;
+	async execute(options, executeOrderCallback, supressAutoSell = false) {
+		const { orders, time } = options.state;
 		
 		let symbolSellOrder = orders.find(item => item.symbol === options.symbol && item.action === ACTION_SELL);
 		// console.log('symbolSellOrder', symbolSellOrder);
@@ -145,14 +142,14 @@ export default class VenomBot {
 
 		// If sell order for base and no sell for symbol ... sell symbol.
 
-		if (!symbolSellOrder && baseSellOrder) {
-			const currentPrice = await binanceHelper.getPriceAtTime(this.dataProvider, options.symbol, options.time)
+		if (supressAutoSell === false && (!symbolSellOrder && baseSellOrder)) {
+			const currentPrice = await binanceHelper.getPriceAtTime(this.dataProvider, options.symbol, time)
 			symbolSellOrder = {
 				symbol: options.symbol,
 				action: ACTION_SELL,
 				volume: 1,
 				price: currentPrice,
-				time: new Date(options.time),
+				time: new Date(time),
 				behaviour: 'Force sell by base coin sale'
 			};
 		}
@@ -163,6 +160,13 @@ export default class VenomBot {
 		if (baseSellOrder)   await executeOrderCallback(baseSellOrder, options);
 		if (baseBuyOrder)    await executeOrderCallback(baseBuyOrder, options);
 		if (symbolBuyOrder)  await executeOrderCallback(symbolBuyOrder, options);
+	
+		// ---------------------------------------------
+
+		await this.writeLog(options);
+
+		// Clear the orders.
+		options.state.orders = [];
 	}
 
 	async sell(symbol, options) {
@@ -177,12 +181,11 @@ export default class VenomBot {
 		const sellParameter = get(options, 'parameters.sell') || {};
 
 		const periodLimit = get(sellParameter, 'period') || 0;
-		const offset = get(sellParameter, 'offset') || 1;
 
-		const maResult = await this.determineMa(symbol, options);
-		const currentPrice = maResult.price;
-		const offsetMaPrice = (maResult.maPrice * offset);
-		const trigger = maResult.price < offsetMaPrice;
+		const maResult = await this.getPriceAndMovingAverage(options, symbol, ACTION_SELL);
+		const currentPrice = maResult.currentPrice;
+		const offsetMaPrice = maResult.offsetMaPrice;
+		const trigger = maResult.currentPrice < maResult.offsetMaPrice;
 
 		let sellThresholdCrossed = false;
 		let period = 0;
@@ -198,16 +201,16 @@ export default class VenomBot {
 
 		// TODO: Add a hard sell point
 		
-		this.log(`CURRENT PRICE:  ${currentPrice.toFixed(10)}`);
-		this.log(`MA:             ${offsetMaPrice.toFixed(10)} [${maResult.maPrice.toFixed(10)} @ ${offset.toFixed(2)}]`);
+		this.log(`CURRENT PRICE:  ${maResult.currentPrice.toFixed(10)}`);
+		this.log(`MA:             ${maResult.offsetMaPrice.toFixed(10)} [${maResult.maPrice.toFixed(10)} @ ${maResult.offset.toFixed(2)}]`);
 		this.log(`PERIOD TRIGGER: ${period} [${periodLimit}]`);
 		this.log(`THRESHOLD:      ${sellThresholdCrossed ? colors.bold('YES') : 'NO'}`);
-		this.log();
-		
-		options.state[symbol].period = period;
 
 		if (!behaviour && sellThresholdCrossed) behaviour = 'MA Breach Threshold';
-		this.log(`RECOMMEND:     ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')}`);
+		this.log(`RECOMMEND:      ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')}`);
+		this.log();
+
+		options.state[symbol].period = period;
 
 		if (behaviour) {
 			options.state[symbol].period = 0;
@@ -233,15 +236,12 @@ export default class VenomBot {
 		let behaviour = null;
 
 		const buyParameter = get(options, 'parameters.buy') || {};
-		const sellParameter = get(options, 'parameters.sell') || {};
-
 		const periodLimit = get(buyParameter, 'period') || 0;
-		const offset = get(buyParameter, 'offset') || 1;
 
-		const maResult = await this.determineMa(symbol, options);
-		const currentPrice = maResult.price;
-		const offsetMaPrice = (maResult.maPrice * offset);
-		const trigger = maResult.price > offsetMaPrice;
+		const maResult = await this.getPriceAndMovingAverage(options, symbol, ACTION_BUY);
+		const currentPrice = maResult.currentPrice;
+		const offsetMaPrice = maResult.offsetMaPrice;
+		const trigger = maResult.currentPrice > maResult.offsetMaPrice;
 
 		let buyThresholdCrossed = false;
 		let period = 0;
@@ -255,16 +255,16 @@ export default class VenomBot {
 			}
 		}
 		
-		this.log(`CURRENT PRICE:  ${currentPrice.toFixed(10)}`);
-		this.log(`MA:             ${offsetMaPrice.toFixed(10)} [${maResult.maPrice.toFixed(10)} @ ${offset.toFixed(2)}]`);
+		this.log(`CURRENT PRICE:  ${maResult.currentPrice.toFixed(10)}`);
+		this.log(`MA:             ${maResult.offsetMaPrice.toFixed(10)} [${maResult.maPrice.toFixed(10)} @ ${maResult.offset.toFixed(2)}]`);
 		this.log(`PERIOD TRIGGER: ${period} [${periodLimit}]`);
 		this.log(`THRESHOLD:      ${buyThresholdCrossed ? colors.bold('YES') : 'NO'}`);
-		this.log();
 		
-		options.state[symbol].period = period;
-
 		if (!behaviour && buyThresholdCrossed) behaviour = 'MA Breach Threshold';
-		this.log(`RECOMMEND:     ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')} ${(supress === true) ? '(Suppression Active)' : ''}`);
+		this.log(`RECOMMEND:      ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')} ${(supress === true) ? '(Suppression Active)' : ''}`);
+		this.log();
+
+		options.state[symbol].period = period;
 
 		if (!hasExecuted) {
 			// Initial MA is to buy - we need a crossover so supress buy.
@@ -299,6 +299,82 @@ export default class VenomBot {
 		return false;
 	}
 
+	async getPriceAndMovingAverage(options, symbol, action) {
+		const parameter = get(options, `parameters.${action}`) || {};
+		const offset = get(parameter, 'offset') || 1;
+
+		const maResult = await this.determineMa(symbol, options);
+		const currentPrice = maResult.price;
+		const offsetMaPrice = (maResult.maPrice * offset);
+
+		options.state[symbol].price = currentPrice;
+		options.state[symbol].ma = offsetMaPrice;
+
+		return {
+			currentPrice,
+			maPrice: maResult.maPrice,
+			offsetMaPrice,
+			offset,
+		};
+	}
+
+	async finalise(options, executeOrderCallback) {
+		const baseWallet = this.getWallet(options, this.baseSymbol, ACTION_SELL);
+		const symbolWallet = this.getWallet(options, options.symbol, ACTION_SELL);
+
+		this.log();
+		if (symbolWallet.value > 0) {
+			const currentPrice = options.state[options.symbol].price;
+			options.state.orders.push({
+				symbol: options.symbol,
+				action: ACTION_SELL,
+				volume: 1,
+				price: currentPrice,
+				time: new Date(options.state.time),
+				behaviour: 'Force sell -- finalise'
+			});
+			this.log(`Evaluate SELL for ${options.symbol}: ${colors.bold.green('ACT')}`);
+		}
+		else {
+			this.log(`Evaluate SELL for ${options.symbol}: ${colors.bold.red('NO ACTION')}`);
+		}
+		
+		
+		if (baseWallet.value > 0) {
+			const currentPrice = options.state[this.baseSymbol].price;
+			options.state.orders.push({
+				symbol: this.baseSymbol,
+				action: ACTION_SELL,
+				volume: 1,
+				price: currentPrice,
+				time: new Date(options.state.time),
+				behaviour: 'Force sell -- finalise'
+			});
+			this.log(`Evaluate SELL for ${this.baseSymbol}: ${colors.bold.green('ACT')}`);
+		}
+		else {
+			this.log(`Evaluate SELL for ${this.baseSymbol}: ${colors.bold.red('NO ACTION')}`);
+		}
+		
+		this.log();
+
+		const result = await this.execute(options, executeOrderCallback, true);
+
+		await this.writeLog(options);
+
+		return result;
+	}
+
+	getWallet(options, symbol, action = ACTION_SELL) {
+		for (const key in options.wallet) {
+			const wallet = options.wallet[key];
+			if (action === ACTION_BUY && wallet.buy && wallet.buy.includes(symbol)) return wallet;
+			if (action === ACTION_SELL && wallet.sell && wallet.sell.includes(symbol)) return wallet;
+		}
+
+		throw new Error(`Wallet not found for ${action} ${symbol}`);
+	}
+
 	async determineMa(symbol, options) {
 
 		const { time } = options.state;
@@ -323,6 +399,62 @@ export default class VenomBot {
 
 	log() {
 		this.logger(colors.black.bgYellow(' VenomBot  '), ' ', ...arguments);
+	}
+
+	async writeLog(options) {
+		const { orders, time } = options.state;
+		const symbols = [this.baseSymbol, options.symbol];
+		const result = { time: new Date(time) };
+
+		for (const key in options.wallet) {
+			const wallet = options.wallet[key];
+			result[`wallet_${key}_value`] = wallet.value;
+		}
+
+		const initOrder = (result, symbol) => {
+			result[`order_${symbol}_symbol`] = null;
+			result[`order_${symbol}_action`] = null;
+			result[`order_${symbol}_behaviour`] = null;			
+		};
+
+		const appendOrder = (result, order) => {
+			if (order) {
+				result[`order_${order.symbol}_symbol`] = order.symbol;
+				result[`order_${order.symbol}_action`] = order.action;
+				result[`order_${order.symbol}_behaviour`] = order.behaviour;
+			}
+		};
+
+		symbols.forEach(symbol => {
+			result[`${symbol}_price`] = options.state[symbol].price;
+			result[`${symbol}_ma`] = options.state[symbol].ma;
+		});
+
+		initOrder(result, this.baseSymbol);
+		initOrder(result, options.symbol);
+
+		let symbolSellOrder = orders.find(item => item.symbol === options.symbol && item.action === ACTION_SELL);
+		appendOrder(result, symbolSellOrder);
+
+		const baseSellOrder = orders.find(item => item.symbol === this.baseSymbol && item.action === ACTION_SELL);
+		appendOrder(result, baseSellOrder);
+
+		const baseBuyOrder = orders.find(item => item.symbol === this.baseSymbol && item.action === ACTION_BUY);
+		appendOrder(result, baseBuyOrder);
+
+		const symbolBuyOrder = orders.find(item => item.symbol === options.symbol && item.action === ACTION_BUY);
+		appendOrder(result, symbolBuyOrder);
+
+		const idx = options.log.findIndex(item => item.time.getTime() === time.getTime());
+
+		if (idx === -1)
+			options.log.push(result);
+		else {
+			const myObj = options.log[idx];
+			Object.keys(myObj).forEach((key) => (myObj[key] == null) && delete myObj[key]);
+
+			options.log[idx] = Object.assign({}, result, myObj);
+		}
 	}
 
 }

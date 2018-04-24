@@ -1,7 +1,10 @@
+import { Parser as Json2csvParser } from 'json2csv';
 import moment from 'moment';
 import colors from 'colors/safe';
 import prettyjson from 'prettyjson';
 import flatten from 'flat';
+import path from 'path';
+import fs from 'fs';
 
 import dataProvider from '../lib/dataProvider';
 import AlgorithmFactory from './algorithms';
@@ -19,7 +22,6 @@ export default class BotEngine {
 		
 		const { symbol, bot:botName }= args;
 		const txnFee = args.txnFee || 0.005;
-		const startingBalance = args.startingBalance || 0.25;
 
 		if (!symbol) throw new Error('You must specify a symbol eg. ETHBTC.');
 		if (!botName) throw new Error('You must specify a bot eg. gary.');
@@ -47,7 +49,7 @@ export default class BotEngine {
 		this.log(`Live Mode: ${(simulation) ? `${colors.red('NOT ENABLED')} (Running Simulation)` : colors.green('ENABLED')}`);
 
 		if (simulation) {
-			this.log(`Simulation Start: ${moment(simFrom).format('Do MMM YY h:mm:ss a')}`);
+			this.log(`Simulation Start: ${moment().format('Do MMM YY h:mm:ss a')}`);
 			this.log(`Simulation End:   ${moment(simTo).format('Do MMM YY h:mm:ss a')}`);
 		}
 
@@ -56,11 +58,7 @@ export default class BotEngine {
 			batch: args.name || `${botName}_${new Date().getTime()}`,
 			symbol: args.symbol,
 			bot: botName,
-			bank: {
-				start: startingBalance,
-				current: startingBalance,
-				end: 0,
-			},
+			log: [],
 			config: {
 				sleep: args.sleep || 3,
 				txnFee: txnFee,
@@ -109,7 +107,6 @@ export default class BotEngine {
 
 		this.options.timers.end = new Date();
 		this.options.timers.timespan = this.options.timers.end.getTime() - this.options.timers.start.getTime();
-		this.options.bank.end = this.options.bank.current;
 
 		this.outputTrades();
 		await this.endDataLog();
@@ -123,7 +120,7 @@ export default class BotEngine {
 		const Processor = AlgorithmFactory.getProcessor(this.options.bot);
 
 		// Set the start time to the simulated start time.
-		this.options.state.time = this.options.simulation.start;
+		this.options.state.time = new Date(this.options.simulation.start);
 
 		// Create the bot.
 		const bot = new Processor(this.dataProvider);
@@ -152,14 +149,20 @@ export default class BotEngine {
 				counter++;
 		}
 
+		this.log();
+		this.log(`Execute Finalisation`);
+		await bot.finalise(this.options, this.executeInstruction.bind(this));
+
 	}
 
 	async executeInstruction(order, options) {
+		let trade = null;
+
 		if (order.action === 'buy') {
 			this.log(`Received ${colors.black.bgGreen('BUY')} instruction @ ${order.price}`);
 
 			// Complete order;
-			return await this.placeBuy(order, options);
+			trade = await this.placeBuy(order, options);
 
 
 		}
@@ -167,7 +170,11 @@ export default class BotEngine {
 			this.log(`Received ${colors.black.bgRed('SELL')} instruction @ ${order.price}`);
 
 			// Complete order;
-			return await this.placeSell(order);
+			trade = await this.placeSell(order, options);
+		}
+
+		if (trade) {
+			this.history.push(trade);
 		}
 	}
 
@@ -184,7 +191,7 @@ export default class BotEngine {
 	async placeBuy(order, options) {
 		let trade = null;
 
-		const { symbol, time, volume, behaviour } = order;
+		const { symbol, time, action, volume, behaviour } = order;
 		const price = parseFloat(order.price);
 
 		const sourceWallet = this.getWallet(options, symbol, 'buy');
@@ -221,14 +228,14 @@ export default class BotEngine {
 
 				trade = {
 					symbol,
-					buy: price,
-					buyTime: time,
-					buyOrderId: new Date().getTime().toString(),
-					buyVolume: quantity,
-					buyBehaviour: behaviour,
-					sellVolume: permittedSpend,
-					recommendedBuy: price,
-					recommendedBuyTime: time,
+					price,
+					time,
+					action,
+					orderId: new Date().getTime().toString(),
+					volume: quantity,
+					behaviour: behaviour,
+					cost: permittedSpend,
+
 					// TODO: Add and log balances at trade time.
 				};
 				
@@ -247,25 +254,24 @@ export default class BotEngine {
 
 	}
 
-	async placeSell(evaluation) {
+	async placeSell(order, options) {
 		let trade = null;
 
-		const { symbol, time, volume, behaviour } = order;
+		const { symbol, time, action, volume, behaviour } = order;
 		const price = parseFloat(order.price);
 
 		const sourceWallet = this.getWallet(options, symbol, 'sell');
 		const targetWallet = this.getWallet(options, symbol, 'buy');
 
-		console.log('sourceWallet', sourceWallet);
-		console.log('targetWallet', targetWallet);
-		throw new Error();
+		//console.log('sourceWallet', sourceWallet);
+		//console.log('targetWallet', targetWallet);
 
 		if (this.options.simulation.enabled) {
-			if (this.options.state.coins > 0) {
+			if (sourceWallet.value > 0) {
 				this.log();
-				this.log('Starting Balance:        ', this.options.bank.current.toFixed(10));
+				this.log('Starting Balance:        ', sourceWallet.value.toFixed(10));
 
-				const quantity = (this.options.state.coins * volume);
+				const quantity = sourceWallet.value; //(sourceWallet.value * volume);
 
 				const grossAmount = quantity * price;
 				const txnCost = grossAmount * this.options.config.txnFee;
@@ -282,77 +288,39 @@ export default class BotEngine {
 
 				// Order placed.
 
-				this.options.state.coins -= quantity;
-				this.options.bank.current = this.options.bank.current + grossAmount;
+				sourceWallet.value -= quantity;
+				targetWallet.value += grossAmount;
 
-				this.log('Number of Coins:         ', this.options.state.coins.toFixed(4));
-				this.log('Remaining Balance:       ', this.options.bank.current.toFixed(10));
+				this.log('Source Wallet:           ', sourceWallet.value.toFixed(10));
+				this.log('Target Wallet:           ', targetWallet.value.toFixed(10));
 				this.log();
 
 				trade = Object.assign({}, this.options.state.order, {
-					sell: price,
-					sellTime: time,
-					sellOrderId: new Date().getTime().toString(),
-					sellVolume: quantity,
-					sellBehaviour: behaviour,
-					recommendedSell: price,
-					recommendedSellTime: time,
+					symbol,
+					price,
+					time,
+					action,
+					orderId: new Date().getTime().toString(),
+					volume: quantity,
+					behaviour: behaviour,
+					cost: grossAmount,
 				})
 
-				this.log(`Placed ${colors.black.bgRed('SELL')} order @ ${trade.sell}`);
-				this.log(`Successful ${colors.black.bgRed('SELL')} order @ ${trade.sell}`);
+				this.log(`Placed ${colors.black.bgRed('SELL')} order @ ${price}`);
+				this.log(`Successful ${colors.black.bgRed('SELL')} order @ ${price}`);
 			}
 			else {
 				this.log(`${colors.red('Ignored')} ${colors.black.bgRed('SELL')} order - not enough coins.`);
 			}
 
+			this.log();
 		}
 
-		this.options.state.order = null;
-
-		if (trade) {
-			this.history.push(trade);
-		}
+		return trade;
 	}
 
 	async executeStream() {
 		return;
-	}
-
-	calcTradeData() {
-		const result = [];
-
-		let compoundingProfit = 1;
-		let profitTradeCount = 0;
-		let lossTradeCount = 0;
-
-		this.history.forEach((item, i) => {
-			const preFeePerUnit = item.sell - item.buy;
-			const preFeeProfit = item.sell / item.buy;
-
-			const txnFeePerUnit = parseFloat(item.sell) * parseFloat(this.options.config.txnFee);
-			const postFeePerUnit = preFeePerUnit - txnFeePerUnit;
-			const postFeeProfit = item.sell / (parseFloat(item.buy) + txnFeePerUnit);
-
-			if (postFeeProfit > 1)
-				profitTradeCount++;
-			else
-				lossTradeCount++;
-
-			compoundingProfit = compoundingProfit * postFeeProfit;
-
-			result.push(Object.assign({}, item, { preFeePerUnit, preFeeProfit, postFeePerUnit, postFeeProfit, txnFeePerUnit }));
-		});
-
-		const profitTradePercentage = (result.length === 0) ? 0 : profitTradeCount / result.length;
-
-		return {
-			compoundingProfit,
-			profitTradeCount,
-			lossTradeCount,
-			profitTradePercentage,
-			trades: result
-		};
 	}
 
 	outputTrades() {
@@ -360,40 +328,58 @@ export default class BotEngine {
 		this.log(colors.bold('TRADE HISTORY'));
 		this.log(colors.bold('============='));
 		this.log();
-		this.log(`Transaction Fee: ${this.options.config.txnFee}`);
+		if (this.options.simulation.enabled) {
+			this.log(`Simulation Start: ${moment(this.options.simulation.start).format('Do MMM YY h:mm:ss a')}`);
+			this.log(`Simulation End:   ${moment(this.options.simulation.end).format('Do MMM YY h:mm:ss a')}`);
+		}
+		this.log(`Transaction Fee:  ${this.options.config.txnFee}`);
 		this.log();	
 
-		const data = this.calcTradeData();
-
-		if (data.trades.length === 0) {
+		if (this.history.length === 0) {
 			this.log('  (No Trades)');
 		}
 		else {
-			let compoundingProfit = 1;
-			data.trades.forEach((item, i) => {
+			this.history.forEach((item, i) => {
 				this.log(`Trade #${i+1}`);
 				this.log(`------------------------------------------------------------------------`);
-				this.log(`${colors.bold('BUY:                   ')} ${item.buy} (${moment(item.buyTime).format('Do MMM YY h:mm:ss a')})`);
-				this.log(`${colors.bold('SELL:                  ')} ${item.sell} (${moment(item.sellTime).format('Do MMM YY h:mm:ss a')})`);
-				this.log(`Pre-fees Unit:          ${(item.preFeeProfit > 1) ? colors.green(item.preFeePerUnit.toFixed(10)) : colors.red(item.preFeePerUnit.toFixed(10))}`);
-				this.log(`Pre-fees Ratio:         ${(item.preFeeProfit > 1) ? colors.green(item.preFeeProfit.toFixed(4)) : colors.red(item.preFeeProfit.toFixed(4))}`);
-
-				this.log(`Transaction Fee / Unit: ${item.txnFeePerUnit.toFixed(10)}`);
-				this.log(`Post-fees Unit:         ${(item.postFeeProfit > 1) ? colors.green(item.postFeePerUnit.toFixed(10)) : colors.red(item.postFeePerUnit.toFixed(10))}`);
-				this.log(`Post-fees Ratio:        ${(item.postFeeProfit > 1) ? colors.bold.green(item.postFeeProfit.toFixed(4)) : colors.bold.red(item.postFeeProfit.toFixed(4))}`);
-
-				compoundingProfit = compoundingProfit * item.postFeeProfit;
-				this.log(`Compound Profit:        ${(compoundingProfit > 1) ? colors.bold.green(compoundingProfit.toFixed(4)) : colors.bold.red(compoundingProfit.toFixed(4))}`);
+				this.log(`${colors.bold('SYMBOL:                ')} ${item.symbol} (${moment(item.time).format('Do MMM YY h:mm:ss a')})`);
+				this.log(`${colors.bold('ACTION:                ')} ${item.action.toUpperCase()}`);
+				this.log(`Price:                  ${item.price.toFixed(10)}`);
+				this.log(`Volume:                 ${item.volume.toFixed(10)}`);
+				this.log(`Behaviour:              ${item.behaviour}`);
+				this.log(`Cost:                   ${item.cost.toFixed(10)}`);
 				this.log();	
 			});
-
-			this.log(`${colors.bold('Remaining Coins:')}        ${this.options.state.coins.toFixed(10)}`);
-			this.log(`${colors.bold('Final Balance:')}          ${this.options.bank.end.toFixed(10)}`);
-			this.log();	
-			this.log(`${colors.bold('Overall Profit*:')}        ${(compoundingProfit > 1) ? colors.bold.green(compoundingProfit.toFixed(4)) : colors.bold.red(compoundingProfit.toFixed(4))}`);
 		}
 
 		this.log();	
+
+		this.outputToCsv();
+	}
+
+	outputToCsv() {
+
+		const dirOutput = path.join(__dirname, '../../output/');
+		if (!fs.existsSync(dirOutput)) {
+			fs.mkdirSync(dirOutput, '0744');
+		}
+
+		const dirOutputKey = path.join(dirOutput, this.options.batch);
+		if (!fs.existsSync(dirOutputKey)) {
+			fs.mkdirSync(dirOutputKey, '0744');
+		}
+
+		try {
+			const fileKey = dirOutputKey + '/' + this.options.batch + '.csv';
+
+			const parser = new Json2csvParser();
+			const csv = parser.parse(this.options.log);
+			fs.writeFileSync(fileKey, csv);
+
+			this.log('CSV File output:', 'file://'+fileKey);
+		} catch (err) {
+			this.log('CSV File output:', 'FAILED');
+		}
 	}
 
 	printOptions() {
@@ -415,56 +401,11 @@ export default class BotEngine {
 	}
 
 	async startDataLog() {
-		const flatParameterList = flatten(this.options.parameters);
-
-		const msg = {
-			key: this.options.batch,
-			symbol: this.options.symbol,
-			simulation: this.options.simulation.enabled,
-			startSimulation: this.options.simulation.start,
-			endSimulation: this.options.simulation.end,
-			startBalance: this.options.bank.start,
-			bot: this.options.bot,
-			startExecution: new Date()
-		};
-
-		await this.dataProvider.bot.upsert(msg);
-
-		if (Object.keys(flatParameterList).length > 0) {
-			const params = Object.keys(flatParameterList).map(key => ({
-				botKey: this.options.batch,
-				name: key,
-				value: (flatParameterList[key] && flatParameterList[key].toString) ? flatParameterList[key].toString() : flatParameterList[key]
-			}));
-
-			await this.dataProvider.bot.bulkCreateParameters(params);
-		}
-
+		// Implement Commit to Datastore logic	
 	}
 
 	async endDataLog() {
-		const data = this.calcTradeData();
-
-		const msg = {
-			key: this.options.batch,
-			endExecution: this.options.timers.end,
-			endBalance: this.options.bank.end,
-			executionTime: this.options.timers.timespan,
-			endCoins: this.options.state.coins,
-			compoundProfit: data.compoundingProfit,
-			tradeCount: data.trades.length,
-			profitTradeCount: data.profitTradeCount,
-			lossTradeCount: data.lossTradeCount,
-			profitTradePercentage: data.profitTradePercentage,
-		};
-
-		await this.dataProvider.bot.upsert(msg);
-
-		const trades = data.trades.map(item => 
-			Object.assign({}, item, { botKey: this.options.batch }));
-
-		await this.dataProvider.bot.bulkCreateTrades(trades);
-
+		// Implement Commit to Datastore logic	
 	}
 
 	sleep(duration) {

@@ -9,7 +9,7 @@ const startingBalance = 1;
 const txnFee = 0.005;
 const sleep = 86400;
 const fromDate = new Date(Date.UTC(2017, 3, 1, 0, 0, 0, 0));
-const toDate = new Date(Date.UTC(2017, 4, 1, 0, 0, 0, 0));
+const toDate = new Date(Date.UTC(2017, 6, 1, 0, 0, 0, 0));
 
 (async () => {
 
