@@ -1,4 +1,5 @@
 {
+	"useJson": true,
 	"rebuild": false,
 
 	"database": {

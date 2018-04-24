@@ -13,6 +13,8 @@ export default class BradBot {
 	async initialise(options, logger) {
 		this.logger = logger;
 
+		
+
 		if (options.simulation.enabled) {
 			// Override trades on data provider.
 

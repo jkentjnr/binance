@@ -1,4 +1,4 @@
-import { EMA } from 'technicalindicators';
+//import { EMA } from 'technicalindicators';
 
 export default class BinanceHelper {
 

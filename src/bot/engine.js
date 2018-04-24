@@ -88,6 +88,10 @@ export default class BotEngine {
 			this.options.parameters = args.parameters;
 		}
 
+		if (args.wallet) {
+			this.options.wallet = args.wallet;
+		}
+
 		this.printOptions();
 	}
 
@@ -129,19 +133,16 @@ export default class BotEngine {
 		while (this.options.state.time < this.options.simulation.end) {
 			this.log(`Executing bot: ${this.options.bot}`);
 
-			this.options = await bot.execute(this.options);
-			
-			const hasInstruction = await this.evaluateInstruction();
-			if (hasInstruction === false) {
+			this.options = await bot.evaluate(this.options);
 
-				// Simulate sleep.
-				this.log(`Simulate sleep for ${this.options.config.sleep} second(s).`);
-				this.options.state.time.setSeconds(this.options.state.time.getSeconds() + this.options.config.sleep);
+			let hasInstruction = false;
+			if (this.options.state.orders && this.options.state.orders.length > 0) {
+				hasInstruction = await bot.execute(this.options, this.executeInstruction.bind(this));
 			}
-			else {
-				this.log(`Simulate 1 second for executing order.`);
-				this.options.state.time.setSeconds(this.options.state.time.getSeconds() + 1);
-			}
+			
+			// Simulate sleep.
+			this.log(`Simulate sleep for ${this.options.config.sleep} second(s).`);
+			this.options.state.time.setSeconds(this.options.state.time.getSeconds() + this.options.config.sleep);
 
 			if (counter > 60) {
 				await this.sleep(100);
@@ -153,39 +154,51 @@ export default class BotEngine {
 
 	}
 
-	async evaluateInstruction() {
-		if (!this.options.state.evaluation) return false; 
-
-		if (this.options.state.evaluation.action === 'buy') {
-			this.log(`Received ${colors.black.bgGreen('BUY')} instruction @ ${this.options.state.evaluation.price}`);
+	async executeInstruction(order, options) {
+		if (order.action === 'buy') {
+			this.log(`Received ${colors.black.bgGreen('BUY')} instruction @ ${order.price}`);
 
 			// Complete order;
-			await this.placeBuy();
+			return await this.placeBuy(order, options);
+
+
 		}
-		else if (this.options.state.evaluation.action === 'sell') {
-			this.log(`Received ${colors.black.bgRed('SELL')} instruction @ ${this.options.state.evaluation.price}`);
+		else if (order.action === 'sell') {
+			this.log(`Received ${colors.black.bgRed('SELL')} instruction @ ${order.price}`);
 
 			// Complete order;
-			await this.placeSell();
+			return await this.placeSell(order);
 		}
-
-		return true;
 	}
 
-	async placeBuy() {
-		const { time, volume, behaviour } = this.options.state.evaluation;
-		const price = parseFloat(this.options.state.evaluation.price);
+	getWallet(options, symbol, action) {
+		for (const key in options.wallet) {
+			const wallet = options.wallet[key];
+			if (action === 'buy' && wallet.buy && wallet.buy.includes(symbol)) return wallet;
+			if (action === 'sell' && wallet.sell && wallet.sell.includes(symbol)) return wallet;
+		}
+
+		throw new Error(`Wallet not found for ${action} ${symbol}`);
+	}
+
+	async placeBuy(order, options) {
+		let trade = null;
+
+		const { symbol, time, volume, behaviour } = order;
+		const price = parseFloat(order.price);
+
+		const sourceWallet = this.getWallet(options, symbol, 'buy');
+		const targetWallet = this.getWallet(options, symbol, 'sell');
 
 		if (this.options.simulation.enabled) {
 
-			if (this.options.bank.current > 0) {
+			if (sourceWallet.value > 0) {
 				this.log();
-				this.log('Starting Balance:        ', this.options.bank.current.toFixed(10));
+				this.log('Starting Balance:        ', sourceWallet.value.toFixed(10));
 
-				const permittedSpend = (this.options.bank.current * volume);
-
+				const permittedSpend = sourceWallet.value; // (100 * volume);
 				const txnCost = permittedSpend * this.options.config.txnFee;
-				const actualBalance = permittedSpend - txnCost
+				const actualBalance = permittedSpend - txnCost;
 				const quantity = parseFloat(((actualBalance) / price).toFixed(4));
 
 				this.log('Recommended Buy Price:   ', price.toFixed(10));
@@ -199,44 +212,53 @@ export default class BotEngine {
 
 				// Order placed.
 
-				this.options.state.coins += quantity;
-				this.options.bank.current = this.options.bank.current - permittedSpend;
+				sourceWallet.value -= permittedSpend;
+				targetWallet.value += quantity;
 
-				this.log('Number of Coins:         ', this.options.state.coins.toFixed(4));
-				this.log('Remaining Balance:       ', this.options.bank.current.toFixed(10));
+				this.log('Source Wallet:           ', sourceWallet.value.toFixed(10));
+				this.log('Target Wallet:           ', targetWallet.value.toFixed(10));
 				this.log();
 
-				this.options.state.order = {
+				trade = {
+					symbol,
 					buy: price,
 					buyTime: time,
 					buyOrderId: new Date().getTime().toString(),
 					buyVolume: quantity,
 					buyBehaviour: behaviour,
+					sellVolume: permittedSpend,
 					recommendedBuy: price,
 					recommendedBuyTime: time,
 					// TODO: Add and log balances at trade time.
 				};
-
-				this.options.bank.inplay = this.options.bank.current;
 				
-				this.log(`Placed ${colors.black.bgGreen('BUY')} order @ ${this.options.state.order.buy}`);
-				this.log(`Successful ${colors.black.bgGreen('BUY')} order @ ${this.options.state.order.buy}`);
+				this.log(`Placed ${colors.black.bgGreen('BUY')} order @ ${price}`);
+				this.log(`Successful ${colors.black.bgGreen('BUY')} order @ ${price}`);
 			}
 			else {
 				this.log(`${colors.red('Ignored')} ${colors.black.bgGreen('BUY')} order - not enough funds.`);
 			}
 
 			this.log();
-		}
 
-		this.options.state.evaluation = null;
+		}
+		
+		return trade;
+
 	}
 
-	async placeSell() {
+	async placeSell(evaluation) {
 		let trade = null;
 
-		const { time, volume, behaviour } = this.options.state.evaluation;
-		const price = parseFloat(this.options.state.evaluation.price);
+		const { symbol, time, volume, behaviour } = order;
+		const price = parseFloat(order.price);
+
+		const sourceWallet = this.getWallet(options, symbol, 'sell');
+		const targetWallet = this.getWallet(options, symbol, 'buy');
+
+		console.log('sourceWallet', sourceWallet);
+		console.log('targetWallet', targetWallet);
+		throw new Error();
 
 		if (this.options.simulation.enabled) {
 			if (this.options.state.coins > 0) {
@@ -287,7 +309,6 @@ export default class BotEngine {
 		}
 
 		this.options.state.order = null;
-		this.options.state.evaluation = null;
 
 		if (trade) {
 			this.history.push(trade);
