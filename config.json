@@ -3,9 +3,8 @@
 	"rebuild": false,
 
 	"database": {
-		"schema": "crypto",
+		"schema": "backtester",
 		"user": "root",
-		"password": "p@ssw0rd1",
 		"host": "127.0.0.1"
 	},
 

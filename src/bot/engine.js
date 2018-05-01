@@ -6,7 +6,7 @@ import flatten from 'flat';
 import path from 'path';
 import fs from 'fs';
 
-import dataProvider from '../lib/dataProvider';
+import dataFactory from '../lib/dataFactory';
 import AlgorithmFactory from './algorithms';
 
 import config from '../../config.json';
@@ -35,7 +35,7 @@ export default class BotEngine {
 		this.log();
 
 		// Set an instance of the dataProvider.
-		this.dataProvider = dataProvider;
+		this.dataProvider = dataFactory.getProvider(args.processorData);
 
 		// Determine if simulating.
 		let simFrom = null;
@@ -57,7 +57,9 @@ export default class BotEngine {
 		this.options = {
 			batch: args.name || `${botName}_${new Date().getTime()}`,
 			symbol: args.symbol,
+			period: args.period,
 			bot: botName,
+			sleep: args.sleep || args.period,
 			log: [],
 			config: {
 				sleep: args.sleep || 3,
@@ -82,6 +84,10 @@ export default class BotEngine {
 			parameters: {}
 		};
 
+		if (args.baseSymbol) {
+			this.options.baseSymbol = args.baseSymbol;
+		}
+
 		if (args.parameters) {
 			this.options.parameters = args.parameters;
 		}
@@ -95,7 +101,7 @@ export default class BotEngine {
 
 	async execute() {
 		// Initialise data store and models
-		await this.dataProvider.initialise(config.rebuild || false, dataProviderOptions);
+		await this.dataProvider.initialise(dataProviderOptions, config.rebuild || false);
 		this.log();
 
 		await this.startDataLog();

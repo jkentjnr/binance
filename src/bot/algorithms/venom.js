@@ -27,15 +27,16 @@ export default class VenomBot {
         const offsetSeconds = parseInt(get(options, 'parameters.ma') || 75); // Seconds
         const offsetDate = moment(options.simulation.start).subtract(offsetSeconds, 'seconds').toDate();
 
-        await this.dataProvider.candlesticks.initialise(symbols);
+		if (this.dataProvider.candlesticks.initialise)
+        	await this.dataProvider.candlesticks.initialise(symbols);
 
 		for (const idx in symbols) {
 			const symbol = symbols[idx];
-			if (this.dataProvider.candlesticks.hasData(symbol, offsetDate, true) === false) {
+			if (this.dataProvider.candlesticks.hasData && this.dataProvider.candlesticks.hasData(symbol, offsetDate, true) === false) {
 				throw new Error(`There is not enough data for symbol '${symbol}. Trigger: ${offsetDate}`);
 			}
 
-			if (this.dataProvider.candlesticks.hasData(symbol, options.simulation.end, false) === false) {
+			if (this.dataProvider.candlesticks.hasData && this.dataProvider.candlesticks.hasData(symbol, options.simulation.end, false) === false) {
 				throw new Error(`There is not enough data for symbol '${symbol}. Trigger: ${options.simulation.end}`);
 			}
 		}
@@ -384,7 +385,9 @@ export default class VenomBot {
 		// ------------------------------------------------
 
 		const offsetDate = moment(new Date(time)).subtract(maPeriod, 'seconds').toDate();
-		const dataset = await this.dataProvider.candlesticks.getByDateTimeRange(symbol, null, offsetDate, time);
+		console.log('qwerty', symbol, options.period, offsetDate, time);
+		const dataset = await this.dataProvider.candlesticks.getByDateTimeRange(symbol, options.period, offsetDate, time);
+		console.log(symbol, options.period, offsetDate, time, dataset);
 		const close = parseFloat(dataset[dataset.length-1].close);
 
 		const maPrice = dataset.reduce((accumulator, item) => accumulator + item.close, 0) / dataset.length;
