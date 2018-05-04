@@ -10,10 +10,10 @@ const processorData = 'cryptoCandlestick';
 const txnFee = 0.005;
 const period = 86400;
 
-const fromDate = new Date(Date.UTC(2017, 3, 1, 0, 0, 0, 0));
-const toDate = new Date(Date.UTC(2017, 6, 1, 0, 0, 0, 0));
+const fromDate = new Date(Date.UTC(2018, 1, 14, 0, 0, 0, 0));
+const toDate = new Date(Date.UTC(2018, 2, 28, 0, 0, 0, 0));
 
-const ma = 50 * 86400;
+const ma = 50;
 
 const buy_Offset = 1;
 const buy_PeriodOverEma = 5;

@@ -24,21 +24,29 @@ export default class VenomBot {
 		const symbols = [this.baseSymbol, options.symbol];
 		this.extendOptions(symbols, options);
 
-        const offsetSeconds = parseInt(get(options, 'parameters.ma') || 75); // Seconds
-        const offsetDate = moment(options.simulation.start).subtract(offsetSeconds, 'seconds').toDate();
+		const ma = parseInt(get(options, 'parameters.ma') || 75);
+		const range = Math.max(parseInt(get(options, 'parameters.buy.period') || 5) + 1, parseInt(get(options, 'parameters.sell.period') || 5) + 1);
 
-		if (this.dataProvider.candlesticks.initialise)
-        	await this.dataProvider.candlesticks.initialise(symbols);
+		const offsetSeconds = (ma + range) * options.periodSeconds;
+        const offsetDate = moment(options.simulation.start).subtract(offsetSeconds, 'seconds').toDate();
 
 		for (const idx in symbols) {
 			const symbol = symbols[idx];
-			if (this.dataProvider.candlesticks.hasData && this.dataProvider.candlesticks.hasData(symbol, offsetDate, true) === false) {
+
+			if (this.dataProvider.candlesticks.initialise)
+			await this.dataProvider.candlesticks.initialise(symbol, options.period, offsetDate, options.simulation.end);
+			
+			const startData = await this.dataProvider.candlesticks.getNext(symbol, offsetDate, true);
+			const endData = await this.dataProvider.candlesticks.getNext(symbol, options.simulation.end, false);
+
+			if (startData.date_period_start > offsetDate) {
 				throw new Error(`There is not enough data for symbol '${symbol}. Trigger: ${offsetDate}`);
 			}
 
-			if (this.dataProvider.candlesticks.hasData && this.dataProvider.candlesticks.hasData(symbol, options.simulation.end, false) === false) {
+			if (endData.date_period_start < options.simulation.end) {
 				throw new Error(`There is not enough data for symbol '${symbol}. Trigger: ${options.simulation.end}`);
 			}
+
 		}
 	}
 
@@ -186,35 +194,19 @@ export default class VenomBot {
 		const maResult = await this.getPriceAndMovingAverage(options, symbol, ACTION_SELL);
 		const currentPrice = maResult.currentPrice;
 		const offsetMaPrice = maResult.offsetMaPrice;
-		const trigger = maResult.currentPrice < maResult.offsetMaPrice;
-
-		let sellThresholdCrossed = false;
-		let period = 0;
-
-		if (trigger) {
-			period = get(options, `state.${symbol}.period`) || 0;
-			period++;
-
-			if (period >= periodLimit) {
-				sellThresholdCrossed = true;
-			}
-		}
+		const sellThresholdCrossed = maResult.trigger;
 
 		// TODO: Add a hard sell point
 		
 		this.log(`CURRENT PRICE:  ${maResult.currentPrice.toFixed(10)}`);
 		this.log(`MA:             ${maResult.offsetMaPrice.toFixed(10)} [${maResult.maPrice.toFixed(10)} @ ${maResult.offset.toFixed(2)}]`);
-		this.log(`PERIOD TRIGGER: ${period} [${periodLimit}]`);
 		this.log(`THRESHOLD:      ${sellThresholdCrossed ? colors.bold('YES') : 'NO'}`);
 
 		if (!behaviour && sellThresholdCrossed) behaviour = 'MA Breach Threshold';
 		this.log(`RECOMMEND:      ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')}`);
 		this.log();
 
-		options.state[symbol].period = period;
-
 		if (behaviour) {
-			options.state[symbol].period = 0;
 			options.state.orders.push({
 				symbol,
 				action: ACTION_SELL,
@@ -242,30 +234,15 @@ export default class VenomBot {
 		const maResult = await this.getPriceAndMovingAverage(options, symbol, ACTION_BUY);
 		const currentPrice = maResult.currentPrice;
 		const offsetMaPrice = maResult.offsetMaPrice;
-		const trigger = maResult.currentPrice > maResult.offsetMaPrice;
-
-		let buyThresholdCrossed = false;
-		let period = 0;
-
-		if (trigger) {
-			period = get(options, `state.${symbol}.period`) || 0;
-			period++;
-
-			if (period >= periodLimit) {
-				buyThresholdCrossed = true;
-			}
-		}
+		const buyThresholdCrossed = maResult.trigger;
 		
 		this.log(`CURRENT PRICE:  ${maResult.currentPrice.toFixed(10)}`);
 		this.log(`MA:             ${maResult.offsetMaPrice.toFixed(10)} [${maResult.maPrice.toFixed(10)} @ ${maResult.offset.toFixed(2)}]`);
-		this.log(`PERIOD TRIGGER: ${period} [${periodLimit}]`);
 		this.log(`THRESHOLD:      ${buyThresholdCrossed ? colors.bold('YES') : 'NO'}`);
 		
 		if (!behaviour && buyThresholdCrossed) behaviour = 'MA Breach Threshold';
 		this.log(`RECOMMEND:      ${(behaviour) ? colors.bold.green('ACT') : colors.bold.red('NO ACTION')} ${(supress === true) ? '(Suppression Active)' : ''}`);
 		this.log();
-
-		options.state[symbol].period = period;
 
 		if (!hasExecuted) {
 			// Initial MA is to buy - we need a crossover so supress buy.
@@ -284,7 +261,6 @@ export default class VenomBot {
 		}
 
 		if (behaviour) {
-			options.state[symbol].period = 0;
 			options.state.orders.push({
 				symbol,
 				action: ACTION_BUY,
@@ -298,25 +274,6 @@ export default class VenomBot {
 		}
 
 		return false;
-	}
-
-	async getPriceAndMovingAverage(options, symbol, action) {
-		const parameter = get(options, `parameters.${action}`) || {};
-		const offset = get(parameter, 'offset') || 1;
-
-		const maResult = await this.determineMa(symbol, options);
-		const currentPrice = maResult.price;
-		const offsetMaPrice = (maResult.maPrice * offset);
-
-		options.state[symbol].price = currentPrice;
-		options.state[symbol].ma = offsetMaPrice;
-
-		return {
-			currentPrice,
-			maPrice: maResult.maPrice,
-			offsetMaPrice,
-			offset,
-		};
 	}
 
 	async finalise(options, executeOrderCallback) {
@@ -376,28 +333,77 @@ export default class VenomBot {
 		throw new Error(`Wallet not found for ${action} ${symbol}`);
 	}
 
-	async determineMa(symbol, options) {
+	async getPriceAndMovingAverage(options, symbol, action) {
+		const parameter = get(options, `parameters.${action}`) || {};
+		const offset = parseInt(get(parameter, 'offset') || 1);
+		const range = parseInt(get(parameter, 'period') || 1);
 
-		const { time } = options.state;
+		const isBelow = (price, maPrice, offset = 1) => (price < (maPrice * offset));
 
-		const maPeriod = parseInt(get(options, 'parameters.ma') || 20); // Seconds;
+		const maResult = await this.determineMaRange(symbol, options, range + 1);
+		const currentPrice = parseFloat(maResult[0].price);
+		const offsetMaPrice = parseFloat(maResult[0].maPrice * offset);
 
-		// ------------------------------------------------
+		options.state[symbol].price = currentPrice;
+		options.state[symbol].ma = offsetMaPrice;
 
-		const offsetDate = moment(new Date(time)).subtract(maPeriod, 'seconds').toDate();
-		console.log('qwerty', symbol, options.period, offsetDate, time);
-		const dataset = await this.dataProvider.candlesticks.getByDateTimeRange(symbol, options.period, offsetDate, time);
-		console.log(symbol, options.period, offsetDate, time, dataset);
-		const close = parseFloat(dataset[dataset.length-1].close);
+		options.state[symbol].start = maResult[0].start;
+		options.state[symbol].end = maResult[0].end;
+		options.state[symbol].open = maResult[0].open;
+		options.state[symbol].close = maResult[0].close;
+		options.state[symbol].high = maResult[0].high;
+		options.state[symbol].low = maResult[0].low;
 
-		const maPrice = dataset.reduce((accumulator, item) => accumulator + item.close, 0) / dataset.length;
+		const initial = isBelow(maResult[maResult.length-1].price, maResult[maResult.length-1].maPrice, offset);
+		const crossedOver = maResult.slice(0, maResult.length - 1).reduce((accumulator, item) => 
+			(accumulator && isBelow(item.price, item.maPrice, offset) !== initial), true);
 
 		return {
-			price: dataset[dataset.length-1].close,
-			time,
-			maPrice,
+			currentPrice,
+			maPrice: maResult[0].maPrice,
+			offsetMaPrice,
+			offset,
+			trigger: (initial && crossedOver)
 		};
+	}
 
+	async determineMaRange(symbol, options, depth = 1) {
+
+		const { periodSeconds } = options;
+		const { time } = options.state;
+
+		const result = [];
+
+		const ma = parseInt(get(options, 'parameters.ma') || 20);
+		const range = ma + depth;
+
+		for (let i = 0; i < depth; i++) {			
+			const endOffset = i * periodSeconds; 
+			const endDate = moment(new Date(time)).subtract(endOffset, 'seconds').toDate();
+
+			const startOffset = endOffset + (range * periodSeconds); 
+			const startDate = moment(new Date(time)).subtract(startOffset, 'seconds').toDate();
+
+			const dataset = await this.dataProvider.candlesticks.getByDateTimeRange(symbol, options.period, startDate, endDate);
+
+			const close = parseFloat(dataset[dataset.length-1].px_close);
+			const maPrice = dataset.reduce((accumulator, item) => parseFloat(accumulator + parseFloat(item.px_close)), 0) / dataset.length;
+	
+			result.push({
+				price: parseFloat(dataset[dataset.length-1].px_close),
+				time: dataset[dataset.length-1].date_period_start,
+				maPrice,
+
+				start: dataset[dataset.length-1].date_period_start,
+				end: dataset[dataset.length-1].date_period_end,
+				open: dataset[dataset.length-1].px_open,
+				close: dataset[dataset.length-1].px_close,
+				high: dataset[dataset.length-1].px_high,
+				low: dataset[dataset.length-1].px_low,
+			});
+		}
+
+		return result;
 	}
 
 	log() {
@@ -409,44 +415,69 @@ export default class VenomBot {
 		const symbols = [this.baseSymbol, options.symbol];
 		const result = { time: new Date(time) };
 
+		const fiatKey = 'fiat';
+		const baseKey = 'base_coin';
+		const altKey = 'alt_coin';
+
 		for (const key in options.wallet) {
 			const wallet = options.wallet[key];
-			result[`wallet_${key}_value`] = wallet.value;
+
+			let role = null;
+			if (wallet.sell === null) 
+				role = fiatKey;
+			else if (wallet.buy === null)
+				role = altKey;
+			else
+				role = baseKey;
+			
+			result[`wallet_${role}_value`] = wallet.value;
+			result[`wallet_${role}_currency`] = key;
 		}
 
-		const initOrder = (result, symbol) => {
-			result[`order_${symbol}_symbol`] = null;
-			result[`order_${symbol}_action`] = null;
-			result[`order_${symbol}_behaviour`] = null;			
+		const initOrder = (result, key, symbol) => {
+			result[`order_${key}_symbol`] = null;
+			result[`order_${key}_action`] = null;
+			result[`order_${key}_behaviour`] = null;			
 		};
 
-		const appendOrder = (result, order) => {
+		const appendOrder = (result, key, order) => {
 			if (order) {
-				result[`order_${order.symbol}_symbol`] = order.symbol;
-				result[`order_${order.symbol}_action`] = order.action;
-				result[`order_${order.symbol}_behaviour`] = order.behaviour;
+				result[`order_${key}_symbol`] = order.symbol;
+				result[`order_${key}_action`] = order.action;
+				result[`order_${key}_behaviour`] = order.behaviour;
 			}
 		};
 
-		symbols.forEach(symbol => {
-			result[`${symbol}_price`] = options.state[symbol].price;
-			result[`${symbol}_ma`] = options.state[symbol].ma;
-		});
+		const transactionData = (result, options, key, symbol) => {
+			result[`${key}_symbol`] = symbol;
+			result[`${key}_price`] = options.state[symbol].price;
+			result[`${key}_ma`] = options.state[symbol].ma;
 
-		initOrder(result, this.baseSymbol);
-		initOrder(result, options.symbol);
+			result[`${key}_start`] = options.state[symbol].start;
+			result[`${key}_end`] = options.state[symbol].end;
+			result[`${key}_open`] = options.state[symbol].open;
+			result[`${key}_close`] = options.state[symbol].close;
+			result[`${key}_high`] = options.state[symbol].high;
+			result[`${key}_low`] = options.state[symbol].low;
+		};
+
+		transactionData(result, options, baseKey, this.baseSymbol);
+		transactionData(result, options, altKey, options.symbol);
+
+		initOrder(result, baseKey, this.baseSymbol);
+		initOrder(result, altKey, options.symbol);
 
 		let symbolSellOrder = orders.find(item => item.symbol === options.symbol && item.action === ACTION_SELL);
-		appendOrder(result, symbolSellOrder);
+		appendOrder(result, altKey, symbolSellOrder);
 
 		const baseSellOrder = orders.find(item => item.symbol === this.baseSymbol && item.action === ACTION_SELL);
-		appendOrder(result, baseSellOrder);
+		appendOrder(result, baseKey, baseSellOrder);
 
 		const baseBuyOrder = orders.find(item => item.symbol === this.baseSymbol && item.action === ACTION_BUY);
-		appendOrder(result, baseBuyOrder);
+		appendOrder(result, baseKey, baseBuyOrder);
 
 		const symbolBuyOrder = orders.find(item => item.symbol === options.symbol && item.action === ACTION_BUY);
-		appendOrder(result, symbolBuyOrder);
+		appendOrder(result, altKey, symbolBuyOrder);
 
 		const idx = options.log.findIndex(item => item.time.getTime() === time.getTime());
 

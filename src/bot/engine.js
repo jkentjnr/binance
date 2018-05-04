@@ -57,12 +57,12 @@ export default class BotEngine {
 		this.options = {
 			batch: args.name || `${botName}_${new Date().getTime()}`,
 			symbol: args.symbol,
-			period: args.period,
+			period: this.determinePeriod(args.period),
+			periodSeconds: args.period,
 			bot: botName,
-			sleep: args.sleep || args.period,
 			log: [],
 			config: {
-				sleep: args.sleep || 3,
+				sleep: args.sleep || args.period,
 				txnFee: txnFee,
 			},
 			state: {
@@ -130,35 +130,44 @@ export default class BotEngine {
 
 		// Create the bot.
 		const bot = new Processor(this.dataProvider);
-		await bot.initialise(this.options, this._log);
 
-		let counter = 0;
-		while (this.options.state.time < this.options.simulation.end) {
-			this.log(`Executing bot: ${this.options.bot}`);
-
-			this.options = await bot.evaluate(this.options);
-
-			let hasInstruction = false;
-			if (this.options.state.orders && this.options.state.orders.length > 0) {
-				hasInstruction = await bot.execute(this.options, this.executeInstruction.bind(this));
-			}
-			
-			// Simulate sleep.
-			this.log(`Simulate sleep for ${this.options.config.sleep} second(s).`);
-			this.options.state.time.setSeconds(this.options.state.time.getSeconds() + this.options.config.sleep);
-
-			if (counter > 60) {
-				await this.sleep(100);
-				counter = 0;
-			}
-			else
-				counter++;
+		let init = false;
+		try {
+			await bot.initialise(this.options, this._log);
+			init = true;
+		}
+		catch (e) {
+			this.log('An Error Occurred:', e.message);
 		}
 
-		this.log();
-		this.log(`Execute Finalisation`);
-		await bot.finalise(this.options, this.executeInstruction.bind(this));
+		if (init) {
+			let counter = 0;
+			while (this.options.state.time < this.options.simulation.end) {
+				this.log(`Executing bot: ${this.options.bot}`);
 
+				this.options = await bot.evaluate(this.options);
+
+				let hasInstruction = false;
+				if (this.options.state.orders && this.options.state.orders.length > 0) {
+					hasInstruction = await bot.execute(this.options, this.executeInstruction.bind(this));
+				}
+				
+				// Simulate sleep.
+				this.log(`Simulate sleep for ${this.options.config.sleep} second(s).`);
+				this.options.state.time.setSeconds(this.options.state.time.getSeconds() + this.options.config.sleep);
+
+				if (counter > 60) {
+					await this.sleep(100);
+					counter = 0;
+				}
+				else
+					counter++;
+			}
+
+			this.log();
+			this.log(`Execute Finalisation`);
+			await bot.finalise(this.options, this.executeInstruction.bind(this));
+		}
 	}
 
 	async executeInstruction(order, options) {
@@ -192,6 +201,15 @@ export default class BotEngine {
 		}
 
 		throw new Error(`Wallet not found for ${action} ${symbol}`);
+	}
+
+	determinePeriod(period) {
+		switch (period) {
+			case 3600:  return '1HRS';
+			case 14400: return '4HRS';
+			case 86400: return '1DAY';
+		}
+		throw new Error('Invalid Period.');
 	}
 
 	async placeBuy(order, options) {

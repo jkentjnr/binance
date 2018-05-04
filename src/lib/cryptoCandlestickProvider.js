@@ -16,6 +16,7 @@ class CryptoCandlestickProvider {
         host: config.database.host,
         dialect: 'mysql',
         logging: false, //this.log, //(process.env.LOGGING === 'true') ? console.log : false,
+        //logging: console.log,
         pool: {
           max: 10,
           min: 1,
@@ -73,11 +74,50 @@ class CandlestickSelector {
 
   constructor(sqlProvider) {
     this.provider = sqlProvider;
+    this.cachedData = {};
+  }
+
+  async initialise(symbol, period, firstDate, lastDate) {
+    const data = await this.getByDateTimeRangeRequest(symbol, period, firstDate, lastDate);
+    this.cachedData[symbol] = data;
+  }
+
+  getNext(symbol, dt, desc) {
+    if (desc) {
+      return this.cachedData[symbol].find(item => item.date_period_start >= dt);
+    }
+    else {
+      this.cachedData[symbol].reverse();
+      const result = this.cachedData[symbol].find(item => item.date_period_start >= dt);
+      this.cachedData[symbol].reverse();
+      return result;
+    }
+  }
+
+  getNextRequest(symbol, dt, desc) {
+    const operation = (desc === true) ? Op.lte : Op.gte;
+    return this.provider.models.candlesticks.findAll({
+      limit: 1,
+      where: {
+        symbol_id: symbol,
+        date_period_start: {
+          [operation]: dt
+        }
+      },
+      order: [
+        ['date_period_start', (desc === true) ? 'DESC' : 'ASC']
+      ],
+      raw: true,
+    });
   }
 
   getByDateTimeRange(symbol, period, firstDate, lastDate) {
+    return this.cachedData[symbol].filter(item => item.date_period_start >= firstDate && item.date_period_end <= lastDate);
+  }
+
+  getByDateTimeRangeRequest(symbol, period, firstDate, lastDate) {
     try {
-      return this.provider.models.candlesticks.findAll({
+      const query = {
         where: {
           symbol_id: symbol,
           period,
@@ -87,8 +127,13 @@ class CandlestickSelector {
           date_period_end: {
             [Op.lte]: lastDate,
           }
-        }
-      });
+        },
+        order: [
+          ['date_period_start', 'ASC']
+        ],
+        raw: true,
+      };
+      return this.provider.models.candlesticks.findAll(query);
     }
     catch(e) {
       console.log('err', e);
