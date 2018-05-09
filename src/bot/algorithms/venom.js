@@ -152,12 +152,12 @@ export default class VenomBot {
 		// If sell order for base and no sell for symbol ... sell symbol.
 
 		if (supressAutoSell === false && (!symbolSellOrder && baseSellOrder)) {
-			const currentPrice = await binanceHelper.getPriceAtTime(this.dataProvider, options.symbol, time)
+			const record = await binanceHelper.getPriceAtTime(this.dataProvider, options.symbol, time);
 			symbolSellOrder = {
 				symbol: options.symbol,
 				action: ACTION_SELL,
 				volume: 1,
-				price: currentPrice,
+				price: record.px_close,
 				time: new Date(time),
 				behaviour: 'Force sell by base coin sale'
 			};
@@ -337,12 +337,12 @@ export default class VenomBot {
 
 	async getPriceAndMovingAverage(options, symbol, action) {
 		const parameter = get(options, `parameters.${action}`) || {};
-		const offset = parseInt(get(parameter, 'offset') || 1);
+		const offset = parseFloat(get(parameter, 'offset') || 1);
 		const range = parseInt(get(parameter, 'period') || 1);
 
 		const isBelow = (price, maPrice, offset = 1) => (price < (maPrice * offset));
 
-		const maResult = await this.determineMaRange(symbol, options, range + 1);
+		const maResult = await this.determineMaRange(symbol, options, range);
 		const currentPrice = parseFloat(maResult[0].price);
 		const offsetMaPrice = parseFloat(maResult[0].maPrice * offset);
 
@@ -359,6 +359,19 @@ export default class VenomBot {
 		const initial = isBelow(maResult[maResult.length-1].price, maResult[maResult.length-1].maPrice, offset);
 		const crossedOver = maResult.slice(0, maResult.length - 1).reduce((accumulator, item) => 
 			(accumulator && isBelow(item.price, item.maPrice, offset) !== initial), true);
+
+		if ((initial && crossedOver)) {
+			/*
+			this.log('CROSSOVER_DATA', 'offset', offset, 'crossedOver', crossedOver, JSON.stringify(maResult, null, 2));
+			this.log('SET1', 'below', isBelow(maResult[maResult.length-1].price, maResult[maResult.length-1].maPrice, offset), maResult[maResult.length-1].price, maResult[maResult.length-1].maPrice, JSON.stringify(maResult[maResult.length-1]));
+
+			maResult.slice(0, maResult.length - 1).forEach(item => {
+				this.log('SET2', 'below', isBelow(item.price, item.maPrice, offset), item.close, parseFloat(item.maPrice * offset), JSON.stringify(item));
+			});
+			
+			throw new Error();
+			*/
+		}
 
 		return {
 			currentPrice,
@@ -377,20 +390,26 @@ export default class VenomBot {
 		const result = [];
 
 		const ma = parseInt(get(options, 'parameters.ma') || 20);
-		const range = ma + depth;
+		const range = ma;
 
 		for (let i = 0; i < depth; i++) {			
 			const endOffset = i * periodSeconds; 
 			const endDate = moment(new Date(time)).subtract(endOffset, 'seconds').toDate();
 
-			const startOffset = endOffset + (range * periodSeconds); 
+			const startOffset = endOffset + (range * periodSeconds) - 1; 
 			const startDate = moment(new Date(time)).subtract(startOffset, 'seconds').toDate();
 
+			//console.log('DATASET_MA', i, range, endDate, startDate);
 			const dataset = await this.dataProvider.candlesticks.getByDateTimeRange(symbol, options.period, startDate, endDate);
+			//console.log('DATASET_MA', dataset.length, dataset[0].date_period_start, dataset[dataset.length-1].date_period_start);
 
 			const close = parseFloat(dataset[dataset.length-1].px_close);
-			const maPrice = dataset.reduce((accumulator, item) => parseFloat(accumulator + parseFloat(item.px_close)), 0) / dataset.length;
-	
+			//const maPrice = dataset.reduce((accumulator, item) => parseFloat(accumulator + parseFloat(item.px_close)), 0) / dataset.length;
+
+			var sum = 0;
+			dataset.forEach(item => sum += parseFloat(item.px_close));
+			var maPrice = sum / dataset.length;
+
 			result.push({
 				price: parseFloat(dataset[dataset.length-1].px_close),
 				time: dataset[dataset.length-1].date_period_start,

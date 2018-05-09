@@ -4,23 +4,23 @@ require('dotenv').config();
 
 const queueName = 'simulations';
 
-const baseSymbol = 'POLONIEX_SPOT_BTC_USDT'; // 'BINANCE_SPOT_BTC_USDT';
-const symbol = 'POLONIEX_SPOT_ETH_BTC'; // 'BINANCE_SPOT_XRP_BTC';
+const baseSymbol = 'BITTREX_SPOT_BTC_USDT'; // 'BINANCE_SPOT_BTC_USDT';
+const symbol = 'BITTREX_SPOT_XRP_BTC'; // 'BINANCE_SPOT_XRP_BTC';
 const bot = 'venom';
 const processorData = 'cryptoCandlestick';
 
 const txnFee = 0.005;
 const period = 86400;
 
-const fromDate = new Date(Date.UTC(2016, 8, 1, 0, 0, 0, 0)); //new Date(Date.UTC(2018, 1, 14, 0, 0, 0, 0));
-const toDate = new Date(Date.UTC(2018, 2, 28, 0, 0, 0, 0));
+const fromDate = new Date(Date.UTC(2017, 8, 1, 0, 0, 0, 0)); //new Date(Date.UTC(2018, 1, 14, 0, 0, 0, 0));
+const toDate = new Date(Date.UTC(2018, 3, 1, 0, 0, 0, 0));
 
 const ma = 50;
 
 const buy_Offset = 1;
-const buy_PeriodOverEma = 5;
+const buy_PeriodOverEma = 9;
 
-const sell_Offset = 0.96;
+const sell_Offset = 0.94;
 const sell_PeriodOverEma = 0;
 
 (async () => {

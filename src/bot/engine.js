@@ -47,7 +47,7 @@ export default class BotEngine {
 		this.log(`Live Mode: ${(simulation) ? `${colors.red('NOT ENABLED')} (Running Simulation)` : colors.green('ENABLED')}`);
 
 		if (simulation) {
-			this.log(`Simulation Start: ${moment().format('Do MMM YY h:mm:ss a')}`);
+			this.log(`Simulation Start: ${moment(simFrom).format('Do MMM YY h:mm:ss a')}`);
 			this.log(`Simulation End:   ${moment(simTo).format('Do MMM YY h:mm:ss a')}`);
 		}
 
@@ -435,7 +435,7 @@ export default class BotEngine {
 		if (this.options) {
 			const row = Array.prototype.join.call(arguments, ' ');
 			const html = convertHtml.toHtml(row);
-			console.log(html);
+			//console.log(html);
 
 			if (!this.options.console) this.options.console = [];
 			this.options.console.push(html);
@@ -450,7 +450,7 @@ export default class BotEngine {
 	async endDataLog() {
 
 		this.options.response.trades = this.history;
-		const htmlLog = `<html><head><style>body{font-family: monospace;white-space: pre;}p{margin:0;}</style><body>${Array.prototype.join.call(this.options.console.map(row => (`<p>${row}</p>`)), '')}</body></html>`;
+		const htmlLog = `<html><head><style>body{background-color: black;font-family: monospace;white-space: pre;}p{margin:0;}</style><body>${Array.prototype.join.call(this.options.console.map(row => (`<p>${row}</p>`)), '')}</body></html>`;
 		//console.log(htmlLog);
 
 		if (this.options.storage && this.options.storage.S3) {

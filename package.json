@@ -24,7 +24,6 @@
     "lodash.setwith": "^4.3.2",
     "moment": "^2.20.1",
     "mysql2": "^1.5.1",
-    "node-binance-api": "^0.3.5",
     "performance-now": "^2.1.0",
     "prettyjson": "^1.2.1",
     "request": "^2.83.0",
@@ -36,6 +35,8 @@
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-preset-env": "^1.6.1",
+    "serverless-pseudo-parameters": "^1.6.0",
+    "serverless-step-functions": "1.4.0",
     "serverless": "^1.25.0"
   }
 }
