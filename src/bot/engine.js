@@ -5,17 +5,15 @@ import prettyjson from 'prettyjson';
 import flatten from 'flat';
 import path from 'path';
 import fs from 'fs';
+import Convert from 'ansi-to-html';
 
 import dataFactory from '../lib/dataFactory';
 import AlgorithmFactory from './algorithms';
 
-import config from '../../config.json';
+const convertHtml = new Convert();
 
 // Configure data provider
-const dataProviderOptions = {
-	mode: ['trades', 'bot'],
-	symbols: config.symbols
-};
+const dataProviderOptions = {};
 
 export default class BotEngine {
 	constructor(args) {
@@ -55,7 +53,7 @@ export default class BotEngine {
 
 		this.history = [];
 		this.options = {
-			batch: args.name || `${botName}_${new Date().getTime()}`,
+			batch: args.name || `${new Date().getTime()}_${botName}_${args.symbol}`,
 			symbol: args.symbol,
 			period: this.determinePeriod(args.period),
 			periodSeconds: args.period,
@@ -81,7 +79,8 @@ export default class BotEngine {
 				end: null,
 				timespan: null,
 			},
-			parameters: {}
+			parameters: {},
+			response: {}
 		};
 
 		if (args.baseSymbol) {
@@ -92,8 +91,40 @@ export default class BotEngine {
 			this.options.parameters = args.parameters;
 		}
 
+		if (args.storage) {
+			this.options.storage = args.storage;
+		}
+		else {
+			this.options.storage =  {
+				S3: {
+					region: process.env.S3_REGION,
+					bucket: process.env.S3_BUCKET,
+					path: process.env.S3_PATH
+				}
+			};
+		}
+
 		if (args.wallet) {
 			this.options.wallet = args.wallet;
+		}
+		else {
+			this.options.wallet = {
+				"USD": {
+					"value": 1000,
+					"buy": [ args.baseSymbol ],
+					"sell": null
+				},
+				"BTC": {
+					"value": 0,
+					"buy": [ args.symbol ],
+					"sell": [ args.baseSymbol ]
+				},
+				"ALT": {
+					"value": 0,
+					"buy": null,
+					"sell": [ args.symbol ]
+				}
+			};
 		}
 
 		this.printOptions();
@@ -101,7 +132,7 @@ export default class BotEngine {
 
 	async execute() {
 		// Initialise data store and models
-		await this.dataProvider.initialise(dataProviderOptions, config.rebuild || false);
+		await this.dataProvider.initialise(dataProviderOptions, false);
 		this.log();
 
 		await this.startDataLog();
@@ -118,6 +149,8 @@ export default class BotEngine {
 		await this.endDataLog();
 
 		await this.dataProvider.close();
+
+		return this.options.response;
 	}
 
 	async executeSimulation() {
@@ -133,11 +166,13 @@ export default class BotEngine {
 
 		let init = false;
 		try {
-			await bot.initialise(this.options, this._log);
+			await bot.initialise(this.options, this._log.bind(this));
 			init = true;
 		}
 		catch (e) {
 			this.log('An Error Occurred:', e.message);
+			this.options.response.statusCode = 404;
+			this.options.response.error = e.message;
 		}
 
 		if (init) {
@@ -258,7 +293,7 @@ export default class BotEngine {
 					orderId: new Date().getTime().toString(),
 					volume: quantity,
 					behaviour: behaviour,
-					cost: permittedSpend,
+					value: permittedSpend,
 
 					// TODO: Add and log balances at trade time.
 				};
@@ -327,7 +362,7 @@ export default class BotEngine {
 					orderId: new Date().getTime().toString(),
 					volume: quantity,
 					behaviour: behaviour,
-					cost: grossAmount,
+					value: grossAmount,
 				})
 
 				this.log(`Placed ${colors.black.bgRed('SELL')} order @ ${price}`);
@@ -371,39 +406,12 @@ export default class BotEngine {
 				this.log(`Price:                  ${item.price.toFixed(10)}`);
 				this.log(`Volume:                 ${item.volume.toFixed(10)}`);
 				this.log(`Behaviour:              ${item.behaviour}`);
-				this.log(`Cost:                   ${item.cost.toFixed(10)}`);
+				this.log(`Value:                  ${item.value.toFixed(10)}`);
 				this.log();	
 			});
 		}
 
 		this.log();	
-
-		this.outputToCsv();
-	}
-
-	outputToCsv() {
-
-		const dirOutput = path.join(__dirname, '../../output/');
-		if (!fs.existsSync(dirOutput)) {
-			fs.mkdirSync(dirOutput, '0744');
-		}
-
-		const dirOutputKey = path.join(dirOutput, this.options.batch);
-		if (!fs.existsSync(dirOutputKey)) {
-			fs.mkdirSync(dirOutputKey, '0744');
-		}
-
-		try {
-			const fileKey = dirOutputKey + '/' + this.options.batch + '.csv';
-
-			const parser = new Json2csvParser();
-			const csv = parser.parse(this.options.log);
-			fs.writeFileSync(fileKey, csv);
-
-			this.log('CSV File output:', 'file://'+fileKey);
-		} catch (err) {
-			this.log('CSV File output:', 'FAILED');
-		}
 	}
 
 	printOptions() {
@@ -421,7 +429,18 @@ export default class BotEngine {
 	}
 
 	_log() {
-		console.log(...arguments);
+		if (process.env.SUPRESS_CONSOLE !== '1')
+			console.log(...arguments);
+
+		if (this.options) {
+			const row = Array.prototype.join.call(arguments, ' ');
+			const html = convertHtml.toHtml(row);
+			console.log(html);
+
+			if (!this.options.console) this.options.console = [];
+			this.options.console.push(html);
+			
+		}
 	}
 
 	async startDataLog() {
@@ -429,7 +448,26 @@ export default class BotEngine {
 	}
 
 	async endDataLog() {
-		// Implement Commit to Datastore logic	
+
+		this.options.response.trades = this.history;
+		const htmlLog = `<html><head><style>body{font-family: monospace;white-space: pre;}p{margin:0;}</style><body>${Array.prototype.join.call(this.options.console.map(row => (`<p>${row}</p>`)), '')}</body></html>`;
+		//console.log(htmlLog);
+
+		if (this.options.storage && this.options.storage.S3) {
+			const s3store = dataFactory.getStorage('s3');
+			const folderPath = (this.options.storage.S3.path) ? `${this.options.storage.S3.path}/${this.options.batch}/` : `${this.options.batch}/`;
+
+			if (this.options.log) {
+				const csvOutput = new Json2csvParser().parse(this.options.log);
+				this.options.response.csv = await s3store.write(this.options.storage.S3.bucket, `${folderPath}${this.options.batch}.csv`, csvOutput, { region: this.options.storage.S3.region });
+			}
+
+			if (this.options.console) {
+				this.options.response.html = await s3store.write(this.options.storage.S3.bucket, `${folderPath}${this.options.batch}.html`, htmlLog, { region: this.options.storage.S3.region });
+			}
+		}
+
+		// Implement Commit to Datastore logic
 	}
 
 	sleep(duration) {

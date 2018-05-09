@@ -20,7 +20,7 @@ service: crypto
 provider:
   name: aws
   runtime: nodejs6.10
-  region: ap-southeast-2
+  region: ap-northeast-2
 
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
@@ -51,13 +51,32 @@ provider:
 #    - exclude-me.js
 #    - exclude-me-dir/**
 
+package:
+  exclude:
+    - .env
+    - .vscode/**
+    - src/**
+    - src/**
+
 functions:
-  heartbeatProcessor:
-    handler: lib/bot/simulator-lambda.handler
-      - sns: bot-simulations
+  executeBot:
+    handler: lib/bot/lambda.executeHandler
+    timeout: 28
+    events:
+      - http:
+          path: execute
+          method: post
+          cors: true
     environment:
-      DATA_HOST: crypto.cwmmrohw9hk8.ap-southeast-2.rds.amazonaws.com
-      DATA_PASSWORD: Crypto321
+      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
+      DATABASE_SCHEMA: backtester
+      DATABASE_USER: sa
+      DATABASE_PASSWORD: Ch!ef007
+      S3_REGION: ap-northeast-2
+      S3_BUCKET: crypto-bot
+      S3_PATH: output
+      FORCE_COLOR: 1
+      SUPRESS_CONSOLE: 1
 
 # you can add CloudFormation resource templates here
 #resources:

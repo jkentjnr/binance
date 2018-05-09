@@ -281,6 +281,8 @@ export default class VenomBot {
 		const symbolWallet = this.getWallet(options, options.symbol, ACTION_SELL);
 
 		this.log();
+
+		let forceSellBase = false;
 		if (symbolWallet.value > 0) {
 			const currentPrice = options.state[options.symbol].price;
 			options.state.orders.push({
@@ -291,14 +293,14 @@ export default class VenomBot {
 				time: new Date(options.state.time),
 				behaviour: 'Force sell -- finalise'
 			});
+			forceSellBase = true;
 			this.log(`Evaluate SELL for ${options.symbol}: ${colors.bold.green('ACT')}`);
 		}
 		else {
 			this.log(`Evaluate SELL for ${options.symbol}: ${colors.bold.red('NO ACTION')}`);
 		}
 		
-		
-		if (baseWallet.value > 0) {
+		if (forceSellBase || baseWallet.value > 0) {
 			const currentPrice = options.state[this.baseSymbol].price;
 			options.state.orders.push({
 				symbol: this.baseSymbol,

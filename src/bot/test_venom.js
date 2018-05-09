@@ -1,16 +1,18 @@
 import BotEngine from './engine';
 
+require('dotenv').config();
+
 const queueName = 'simulations';
 
-const baseSymbol = 'BINANCE_SPOT_BTC_USDT';
-const symbol = 'BINANCE_SPOT_XRP_BTC';
+const baseSymbol = 'POLONIEX_SPOT_BTC_USDT'; // 'BINANCE_SPOT_BTC_USDT';
+const symbol = 'POLONIEX_SPOT_ETH_BTC'; // 'BINANCE_SPOT_XRP_BTC';
 const bot = 'venom';
 const processorData = 'cryptoCandlestick';
 
 const txnFee = 0.005;
 const period = 86400;
 
-const fromDate = new Date(Date.UTC(2018, 1, 14, 0, 0, 0, 0));
+const fromDate = new Date(Date.UTC(2016, 8, 1, 0, 0, 0, 0)); //new Date(Date.UTC(2018, 1, 14, 0, 0, 0, 0));
 const toDate = new Date(Date.UTC(2018, 2, 28, 0, 0, 0, 0));
 
 const ma = 50;
@@ -41,6 +43,7 @@ const sell_PeriodOverEma = 0;
 		name: name,
 		period: period,
 		txnFee: txnFee,
+		storage: {},
 		wallet: {
 			USD: {
 				value: 1000,

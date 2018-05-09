@@ -1,8 +1,6 @@
 import Sequelize from 'sequelize';
 import colors from 'colors/safe';
 
-import config from '../../config.json';
-
 const Op = Sequelize.Op
 
 class CryptoCandlestickProvider {
@@ -12,8 +10,8 @@ class CryptoCandlestickProvider {
   }
 
   initialise(options = {}, rebuild = false) {
-    this.sequelize = new Sequelize(config.database.schema, config.database.user, config.database.password || null, {
-        host: config.database.host,
+    this.sequelize = new Sequelize(process.env.DATABASE_SCHEMA, process.env.DATABASE_USER, process.env.DATABASE_PASSWORD || null, {
+        host: process.env.DATABASE_HOST,
         dialect: 'mysql',
         logging: false, //this.log, //(process.env.LOGGING === 'true') ? console.log : false,
         //logging: console.log,
@@ -143,6 +141,7 @@ class CandlestickSelector {
 }
 
 const provider = new CryptoCandlestickProvider();
+
 export default {
   _provider: provider,
   candlesticks: new CandlestickSelector(provider),
