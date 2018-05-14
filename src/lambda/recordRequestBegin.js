@@ -1,4 +1,5 @@
 import lambdaHelper from '../utils/lambdaHelper';
+import colors from 'colors/safe';
 
 const config = {
     title: ' Recorder  ',

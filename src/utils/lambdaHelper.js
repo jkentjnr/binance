@@ -1,5 +1,4 @@
 import Exceptions from '../exceptions';
-import colors from 'colors/safe';
 
 exports.loadMessage = (event) => {
 	try { 
@@ -22,7 +21,7 @@ exports.dataWrapper = (config, event, context, callback, func) => {
     
     const log = {
         application: { write: () => console.log(config.color(config.title), ' ', ...arguments) },
-        system: { write: () => console.log(config.title.toUpperCase(), ' ', ...arguments) }
+        system: { write: () => console.log(config.title.toUpperCase(), ...arguments) }
     }
 
 	try {
@@ -37,7 +36,7 @@ exports.dataWrapper = (config, event, context, callback, func) => {
 		}
 		else {
 
-			handleResult(null, persistResult(funcResult));
+			handleResult(null, funcResult);
 		}
 	}
 	catch(e) {

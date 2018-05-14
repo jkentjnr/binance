@@ -19,6 +19,7 @@
     "dotenv": "^5.0.1",
     "flat": "^4.0.0",
     "json2csv": "^4.1.2",
+    "jsonschema": "^1.2.4",
     "lodash.get": "^4.4.2",
     "lodash.set": "^4.3.2",
     "lodash.setwith": "^4.3.2",
