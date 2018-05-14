@@ -8,6 +8,7 @@ const requestSchema = {
     "id": "/Request",
     "type": "object",
     "properties": {
+      "simulation": {"type": "boolean", "required": true},
       "symbol": {"type": "string", "required": true},
       "bot": {"type": "string", "enum": algorithmFactory.getBotList(), "required": true},
       "period": {"type": "integer", "enum": [3600, 14400, 86400], "required": true},
@@ -43,8 +44,10 @@ class Validator {
             
             // TODO: Throw on null provider.
             
-            const validationResult = await botProcessor.validateData(message, dataProvider);
+            const validationResult = await botProcessor.validateData(message, log, dataProvider);
             errors.push(...validationResult);
+
+            dataProvider.close();            
         }
         
         errors.push(...baseResult.errors);

@@ -24,10 +24,14 @@ const sell_PeriodOverEma = 0;
 (async () => {
 
 	const args = {
-		symbol: symbol,
-		bot: bot,
-		from: fromDate,
-		to: toDate,
+		simulation: true,
+		"baseSymbol": "POLONIEX_SPOT_BTC_USDT",
+		"symbol": "POLONIEX_SPOT_ETH_BTC",
+	  
+		"bot": "venom",
+		
+		"from": "2016-09-01T00:00:00.000Z",
+		"to": "2018-03-28T00:00:00.000Z",
 		period: period,
 		data: processorData,
 		wallet: {

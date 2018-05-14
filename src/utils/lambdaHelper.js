@@ -10,9 +10,12 @@ exports.loadMessage = (event) => {
 };
 
 exports.dataWrapper = (config, event, context, callback, func) => {
+	//context.callbackWaitsForEmptyEventLoop = false;
+
 	const handleResult = (err, data) => {
 		//if (err) { console.log('EXCEPTION', JSON.stringify(err, null, 2)); }
 		//if (data) { console.log('RESULT', JSON.stringify(data, null, 2)); }
+		console.log('handleResult', err, data);
 		if (err)
 			callback(err);
 		else
@@ -35,7 +38,6 @@ exports.dataWrapper = (config, event, context, callback, func) => {
 				.catch(e => handleResult(e, null));
 		}
 		else {
-
 			handleResult(null, funcResult);
 		}
 	}

@@ -8,14 +8,11 @@ const config = {
 
 exports.handler = function(event, context, callback) {
     lambdaHelper.dataWrapper(config, event, context, callback, (message, log) => {
-        log.application.write('MESSAGE', JSON.stringify(message, null, 2));
+        log.system.write('MESSAGE', JSON.stringify(message, null, 2));
 
         /// Call validateRequest.
 
-        message.step = {
-            valid: true,
-            recorded: true,
-        };
+        message.step.additional = true;
 
         return message;
     });

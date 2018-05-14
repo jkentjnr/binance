@@ -1,6 +1,9 @@
+import 'babel-polyfill';
+
 import lambdaHelper from '../utils/lambdaHelper';
 import colors from 'colors/safe';
-import { Validator } from '../engine';
+import Engine from '../engine';
+const { Validator } = Engine;
 
 const config = {
     title: ' Validator ',
@@ -9,13 +12,14 @@ const config = {
 
 exports.handler = function(event, context, callback) {
     lambdaHelper.dataWrapper(config, event, context, callback, async (message, log) => {
-        log.application.write('MESSAGE', JSON.stringify(message, null, 2));
+        log.system.write('MESSAGE', JSON.stringify(message, null, 2));
 
-        // Call validateRequest.
-        const response = await new Validator.validate(message, log);
+        // Call validateRequest
+        const response = await Validator.validate(message, log);
 
         message.step = {
-            valid: response.valid
+            valid: response.valid,
+            errors: response.errors
         };
 
         return message;
