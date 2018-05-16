@@ -10,7 +10,7 @@ exports.loadMessage = (event) => {
 };
 
 exports.dataWrapper = (config, event, context, callback, func) => {
-	//context.callbackWaitsForEmptyEventLoop = false;
+	context.callbackWaitsForEmptyEventLoop = config.waitForEmptyEventLoop || false;
 
 	const handleResult = (err, data) => {
 		//if (err) { console.log('EXCEPTION', JSON.stringify(err, null, 2)); }

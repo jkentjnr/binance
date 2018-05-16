@@ -19,13 +19,7 @@ class DataRecorderProvider {
             dialect: 'mysql',
             //logging: false, //this.log, //(process.env.LOGGING === 'true') ? console.log : false,
             logging: console.log,
-            pool: {
-                max: 10,
-                min: 1,
-                //idle: 20000,
-                //evict: 20000,
-                //acquire: 20000
-            },
+            pool: { maxIdleTime: 100, max: 5, min: 1 },
             operatorsAliases: Op,
         });
 
@@ -100,8 +94,8 @@ class DataRecorderProvider {
         return this.sequelize.sync();
     }
 
-    close() {
-        this.sequelize.close();
+    async close() {
+        // this.sequelize.close();
     }
 
     async setHeader(message, log) {

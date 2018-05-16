@@ -25,7 +25,8 @@ exports.handler = function(event, context, callback) {
         // -----
 
         await Validator.setDefaults(message, log);
-
+        message.recorder = ['dataRecorder'];
+        
         // -----
 
         return message;

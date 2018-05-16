@@ -15,8 +15,18 @@ class Recorder {
 
 	async setHeader(message, log) {
         const recorder = await this.getRecorder(message, log);
-        recorder.setHeader(message, log);
+        if (recorder) {
+            await recorder.setHeader(message, log);    
+        }
     }
+
+	async close(message, log) {
+        const recorder = await this.getRecorder(message, log);
+        if (recorder) {
+            await recorder.close();
+        }
+    }
+    
 }
 
 export default new Recorder();

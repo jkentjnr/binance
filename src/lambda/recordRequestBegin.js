@@ -18,7 +18,7 @@ exports.handler = function(event, context, callback) {
         await Recorder.setHeader(message, log);
 
         // Close or commit any data to disk / store.
-        await Recorder.close();
+        await Recorder.close(message, log);
 
         return message;
     });
