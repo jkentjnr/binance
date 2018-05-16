@@ -64,4 +64,12 @@ export default class VenomBot extends BotBase {
 
     }
 
+    static async setDefaults(message, log) {
+        if (!message.name) {
+            message.name = `${new Date().getTime()}_${message.bot}`;
+        }
+
+        return message;
+    }
+
 }

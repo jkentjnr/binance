@@ -22,6 +22,12 @@ exports.handler = function(event, context, callback) {
             errors: response.errors
         };
 
+        // -----
+
+        await Validator.setDefaults(message, log);
+
+        // -----
+
         return message;
     });
 }

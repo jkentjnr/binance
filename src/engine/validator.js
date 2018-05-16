@@ -2,6 +2,8 @@ import { Validator as JsonValidator } from 'jsonschema';
 import algorithmFactory from '../algorithms';
 import providerFactory from '../providers';
 import objectHelper from '../utils/objectHelper';
+import get from 'lodash.get';
+import set from 'lodash.set';
 
 // Base Request Schema.
 const requestSchema = {
@@ -47,7 +49,7 @@ class Validator {
             const validationResult = await botProcessor.validateData(message, log, dataProvider);
             errors.push(...validationResult);
 
-            dataProvider.close();            
+            dataProvider.close();
         }
         
         errors.push(...baseResult.errors);
@@ -56,6 +58,27 @@ class Validator {
             valid: (errors.length === 0),
             errors
         };
+    }
+
+    async setDefaults(message, log) {
+
+        // If a bot is present and valid, extend the schema for bot-specific request params 
+        if (message.bot) {
+            const botProcessor = algorithmFactory.getBotProcessor(message.bot);
+            if (botProcessor) {
+                botProcessor.setDefaults(message, log);
+            }
+        }
+
+        // ----
+
+        if (!message.name) {
+            message.name = `${new Date().getTime()}_${message.bot}`;
+        }
+
+        if (!get(message, 'execution.start')) {
+            set(message, 'execution.start', new Date());
+        }
     }
 }
 

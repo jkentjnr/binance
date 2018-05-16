@@ -51,6 +51,7 @@ const sell_PeriodOverEma = 0;
 				sell: [symbol]
 			}
 		},
+		recorder: ['dataRecorder'],
 		parameters: {
             baseSymbol: baseSymbol,
 			buy: {
@@ -66,8 +67,13 @@ const sell_PeriodOverEma = 0;
 		}
 	};
 
+    const log = {
+        application: { write: () => console.log('APPLICATION', ...arguments) },
+        system: { write: () => console.log('SYSTEM', ...arguments) }
+    }
+
 	const engine = new BotEngine();
-	await engine.execute(args);
+	await engine.execute(args, log);
 
 })();
 

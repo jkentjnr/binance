@@ -7,4 +7,8 @@ export default class BotBase {
     static validateData(message, dataProvider) {
         return [];
     }
+
+    static setDefaults(message) {
+        return message;
+    }
 }
