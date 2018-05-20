@@ -12,7 +12,7 @@ const requestSchema = {
     "properties": {
       "simulation": {"type": "boolean", "required": true},
       "symbol": {"type": "string", "required": true},
-      "bot": {"type": "string", "enum": algorithmFactory.getBotList(), "required": true},
+      "bot": {"type": "array", "items": { "type": "string", "enum": algorithmFactory.getBotList() }, "required": true},
       "period": {"type": "integer", "enum": [3600, 14400, 86400], "required": true},
       "from": {"type": "date-time", "required": true},
       "to": {"type": "date-time", "required": true},
@@ -32,10 +32,8 @@ class Validator {
 
         // If a bot is present and valid, extend the schema for bot-specific request params 
         if (message.bot) {
-            botProcessor = algorithmFactory.getBotProcessor(message.bot);
-            if (botProcessor) {
-                botProcessor.addBotSchema(v, schema);
-            }
+            const bots = algorithmFactory.getBotProcessor(message.bot);
+            bots.forEach(botProcessor => botProcessor.addBotSchema(v, schema));
         }
 
         // Execute the request validation
@@ -64,13 +62,14 @@ class Validator {
 
         // If a bot is present and valid, extend the schema for bot-specific request params 
         if (message.bot) {
-            const botProcessor = algorithmFactory.getBotProcessor(message.bot);
-            if (botProcessor) {
-                botProcessor.setDefaults(message, log);
-            }
+            const bots = algorithmFactory.getBotProcessor(message.bot);
+            bots.forEach(botProcessor => botProcessor.setDefaults(message, log));
         }
 
         // ----
+
+        if (message.from) message.from = new Date(message.from);
+        if (message.to) message.to = new Date(message.to);
 
         if (!message.name) {
             message.name = `${new Date().getTime()}_${message.bot}`;
@@ -78,6 +77,12 @@ class Validator {
 
         if (!get(message, 'execution.start')) {
             set(message, 'execution.start', new Date());
+        }
+
+        if (!message.state) {
+            message.state = {
+                orders: []
+            };
         }
     }
 }

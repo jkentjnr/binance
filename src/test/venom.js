@@ -2,8 +2,8 @@ import BotEngine from '../engine';
 
 require('dotenv').config();
 
-const baseSymbol = 'BITTREX_SPOT_BTC_USDT'; // 'BINANCE_SPOT_BTC_USDT';
-const symbol = 'BITTREX_SPOT_XRP_BTC'; // 'BINANCE_SPOT_XRP_BTC';
+const baseSymbol = 'POLONIEX_SPOT_BTC_USDT'; // 'BINANCE_SPOT_BTC_USDT';
+const symbol = 'POLONIEX_SPOT_ETH_BTC'; // 'BINANCE_SPOT_XRP_BTC';
 
 const bot = 'venom';
 const processorData = 'cryptoCandlestick';
@@ -28,7 +28,7 @@ const sell_PeriodOverEma = 0;
 		"baseSymbol": "POLONIEX_SPOT_BTC_USDT",
 		"symbol": "POLONIEX_SPOT_ETH_BTC",
 	  
-		"bot": "venom",
+		"bot": [ "venom" ],
 		
 		"from": "2016-09-01T00:00:00.000Z",
 		"to": "2018-03-28T00:00:00.000Z",
@@ -68,8 +68,8 @@ const sell_PeriodOverEma = 0;
 	};
 
     const log = {
-        application: { write: () => console.log('APPLICATION', ...arguments) },
-        system: { write: () => console.log('SYSTEM', ...arguments) }
+        application: { write: (a,b,c,d,e,f,g,h,i) => console.log('APPLICATION', a||'',b||'',c||'',d||'',e||'',f||'',g||'',h||'',i||'') },
+        system: { write: (a,b,c,d,e,f,g,h,i) => console.log('SYSTEM', a||'',b||'',c||'',d||'',e||'',f||'',g||'',h||'',i||'') }
     }
 
 	const engine = new BotEngine();

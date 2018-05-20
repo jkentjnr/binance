@@ -1,14 +1,14 @@
 export default class BotBase {
 
-    static addBotSchema(v, schema) {
+    async addBotSchema(v, schema) {
         // Take no action - effectively abstract.
     }
 
-    static validateData(message, dataProvider) {
+    async validateData(message, dataProvider) {
         return [];
     }
 
-    static setDefaults(message) {
+    async setDefaults(message) {
         return message;
     }
 }

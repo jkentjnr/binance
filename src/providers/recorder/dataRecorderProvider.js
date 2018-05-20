@@ -104,7 +104,7 @@ class DataRecorderProvider {
             key: message.name,
             campaign: message.campaign || null,
             symbol: message.symbol,
-            bot: message.bot,
+            bot: message.bot.join('_'),
             startSimulation: message.from,
 			endSimulation: message.to,
             startBalance: get(message, 'execution.startBalance') || null,
@@ -121,18 +121,27 @@ class DataRecorderProvider {
 
         // ---------------
 
+        let parameterList = [];
+
         if (message.parameters) {
             const flatParameterList = flatten(message.parameters);
+            parameterList = Object.keys(flatParameterList).map(key => ({
+                botKey: message.name,
+                name: key,
+                value: (flatParameterList[key] && flatParameterList[key].toString) ? flatParameterList[key].toString() : flatParameterList[key]
+            }));
+        }
 
-            if (Object.keys(flatParameterList).length > 0) {
-                const params = Object.keys(flatParameterList).map(key => ({
-                    botKey: message.name,
-                    name: key,
-                    value: (flatParameterList[key] && flatParameterList[key].toString) ? flatParameterList[key].toString() : flatParameterList[key]
-                }));
-    
-                await this.models.botParameters.bulkCreate(params);
-            }
+        if (message.bot) {
+            message.bot.forEach(value => parameterList.push({
+                botKey: message.name,
+                name: 'bot',
+                value: value
+            }));
+        }
+
+        if (parameterList.length > 0) {
+            await this.models.botParameters.bulkCreate(parameterList);
         }
     }
 }
