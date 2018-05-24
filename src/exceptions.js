@@ -6,6 +6,15 @@ class ValidationError extends Error {
     }
 }
 
+class ConfigurationError extends Error {
+  constructor(message, e) {
+    super(message);
+    this.name = 'ConfigurationError';
+    this.innerException = e;
+  }
+}
+
 export default {
-	ValidationError,
+  ValidationError,
+  ConfigurationError,
 };	

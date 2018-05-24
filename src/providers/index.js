@@ -2,13 +2,21 @@ import CryptoCandlestickProvider from './data/cryptoCandlestickProvider';
 
 import RecorderProxy from './recorder/recorderProxy';
 import DataRecorderProvider from './recorder/dataRecorderProvider';
+import ConsoleRecorderProvider from './recorder/consoleRecorderProvider';
+
+import SimulatorTraderProvider from './trader/simulatorTraderProvider';
 
 const dataProviders = {
 	cryptoCandlestick: CryptoCandlestickProvider
 }
 
 const recorderProviders = {
-	dataRecorder: DataRecorderProvider
+	dataRecorder: DataRecorderProvider,
+	consoleRecorder: ConsoleRecorderProvider,
+}
+
+const traderProviders = {
+	simulatorTrader: SimulatorTraderProvider
 }
 
 export default class ProviderFactory {
@@ -44,6 +52,22 @@ export default class ProviderFactory {
 			await recorderProxy.initialise(message, log);
 
 			return recorderProxy;
+		}
+
+		return null;
+	}
+
+    static getTraderProviderList() {
+		return Object.keys(traderProviders);
+	}
+
+	static async getTraderProvider(message, log) {
+		if (message && message.trader && traderProviders[message.trader]) {
+			const TraderProvider = traderProviders[message.trader];
+			const provider = new TraderProvider();
+			
+			await provider.initialise(message, log);
+			return provider;
 		}
 
 		return null;

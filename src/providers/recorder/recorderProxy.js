@@ -7,21 +7,32 @@ export default class RecorderProxy {
     async initialise(message, logger) {
         for (let i = 0; i < this.recorders.length; i++) {
             const recorder = this.recorders[i];
-            await recorder.initialise(message, logger);
+            if (recorder.initialise)
+                await recorder.initialise(message, logger);
         }
     }
 
     async close() {
         for (let i = 0; i < this.recorders.length; i++) {
             const recorder = this.recorders[i];
-            await recorder.close();
+            if (recorder.close)
+                await recorder.close();
         }
     }
 
     async setHeader(message, logger) {
         for (let i = 0; i < this.recorders.length; i++) {
             const recorder = this.recorders[i];
-            await recorder.setHeader(message, logger);
+            if (recorder.setHeader)
+                await recorder.setHeader(message, logger);
+        }
+    }
+
+    async setFooter(message, logger) {
+        for (let i = 0; i < this.recorders.length; i++) {
+            const recorder = this.recorders[i];
+            if (recorder.setFooter)
+                await recorder.setFooter(message, logger);
         }
     }
 }

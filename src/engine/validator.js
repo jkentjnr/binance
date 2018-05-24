@@ -11,6 +11,7 @@ const requestSchema = {
     "type": "object",
     "properties": {
       "simulation": {"type": "boolean", "required": true},
+      "campaign": {"type": "string"},
       "symbol": {"type": "string", "required": true},
       "bot": {"type": "array", "items": { "type": "string", "enum": algorithmFactory.getBotList() }, "required": true},
       "period": {"type": "integer", "enum": [3600, 14400, 86400], "required": true},
@@ -47,7 +48,7 @@ class Validator {
             const validationResult = await botProcessor.validateData(message, log, dataProvider);
             errors.push(...validationResult);
 
-            dataProvider.close();
+            dataProvider.close(message);
         }
         
         errors.push(...baseResult.errors);
@@ -72,18 +73,41 @@ class Validator {
         if (message.to) message.to = new Date(message.to);
 
         if (!message.name) {
-            message.name = `${new Date().getTime()}_${message.bot}`;
+            message.name = `${new Date().getTime()}_${message.bot.join('_')}`;
         }
 
         if (!get(message, 'execution.start')) {
             set(message, 'execution.start', new Date());
         }
 
-        if (!message.state) {
-            message.state = {
-                orders: []
-            };
+        if (!message.log) {
+            message.log = [];
         }
+
+        if (!message.state) {
+            message.state = {};
+        }
+
+		if (!message.state.orders) {
+			message.state.orders = [];
+		}
+
+        if (!message.state.instruction) {
+            message.state.instruction = {};
+        }
+
+        if (!message.history) {
+            message.history = [];
+        }
+
+        if (!message.config) {
+            message.config = {};
+        }
+
+        if (!message.config.txnFee) {
+            message.config.txnFee = 0.005;
+        }
+
     }
 }
 

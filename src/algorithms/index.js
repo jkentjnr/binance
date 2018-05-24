@@ -23,4 +23,17 @@ export default class AlgorithmFactory {
 
 		return res;
 	}
+
+	static async getBotProcessorAndInitialise(message, log, dataProvider) {
+		const bots = AlgorithmFactory.getBotProcessor(message.bot);
+
+		// Initialise the bots.
+        for (let i = 0; i < bots.length; i++) {
+            const botProcessor = bots[i];    
+			await botProcessor.initialise(message, log, dataProvider);
+		}
+
+		return bots;
+
+	}
 }

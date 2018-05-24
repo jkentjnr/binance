@@ -7,6 +7,7 @@ const symbol = 'POLONIEX_SPOT_ETH_BTC'; // 'BINANCE_SPOT_XRP_BTC';
 
 const bot = 'venom';
 const processorData = 'cryptoCandlestick';
+const processorTrader = 'simulatorTrader';
 
 const period = 86400;
 
@@ -25,7 +26,6 @@ const sell_PeriodOverEma = 0;
 
 	const args = {
 		simulation: true,
-		"baseSymbol": "POLONIEX_SPOT_BTC_USDT",
 		"symbol": "POLONIEX_SPOT_ETH_BTC",
 	  
 		"bot": [ "venom" ],
@@ -34,6 +34,7 @@ const sell_PeriodOverEma = 0;
 		"to": "2018-03-28T00:00:00.000Z",
 		period: period,
 		data: processorData,
+		trader: processorTrader,
 		wallet: {
 			USD: {
 				value: 1000,
@@ -51,7 +52,10 @@ const sell_PeriodOverEma = 0;
 				sell: [symbol]
 			}
 		},
-		recorder: ['dataRecorder'],
+		recorder: ['dataRecorder', 'consoleRecorder'],
+		config: {
+			closeDataConnections: true
+		},
 		parameters: {
             baseSymbol: baseSymbol,
 			buy: {

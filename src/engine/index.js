@@ -1,8 +1,10 @@
 import Validator from './validator';
 import Recorder from './recorder';
 import Evaluator from './evaluator';
+import Trader from './trader';
 
 class BotEngine {
+    
 	async execute(message, log) {
 
         // Validate
@@ -15,11 +17,15 @@ class BotEngine {
 
         await Evaluator.evaluate(message, log);
 
-    }   
+        await Recorder.setFooter(message, log);
+
+    }
+    
 }
 
 BotEngine.Validator = Validator;
 BotEngine.Recorder = Recorder;
 BotEngine.Evaluator = Evaluator;
+BotEngine.Trader = Trader;
 
 export default BotEngine;

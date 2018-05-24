@@ -94,8 +94,10 @@ class DataRecorderProvider {
         return this.sequelize.sync();
     }
 
-    async close() {
-        // this.sequelize.close();
+    async close(message) {
+        if (get(message, 'config.closeDataConnections') === true) {
+            await this.sequelize.close();
+        }
     }
 
     async setHeader(message, log) {

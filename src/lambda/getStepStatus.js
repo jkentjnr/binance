@@ -3,15 +3,15 @@ import lambdaHelper from '../utils/lambdaHelper';
 
 const stepFunctions = new AWS.StepFunctions();
 
-exports.handler = function(event, context, callback) {
-    lambdaHelper.dataWrapper(config, event, context, callback, (message, log) => {
+exports.handler = async (event, context, callback) => {
+    await lambdaHelper.dataWrapper(config, event, context, callback, async (message, log) => {
         log.application.write('MESSAGE', JSON.stringify(message, null, 2));
 
         getStepStatus(message.executionArn)
             .then(result => callback(null, { statusCode: 200, body: JSON.stringify(result) }))
             .then(e => callback(null, { statusCode: 500, body: e.message }));
     });
-}
+};
 
 const getStepStatus = (executionArn) => {
 	const params = { executionArn };

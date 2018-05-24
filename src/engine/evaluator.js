@@ -9,6 +9,9 @@ class Evaluator {
 	}
 
 	setDefaults(message) {
+		message.to = new Date(message.to);
+		message.from = new Date(message.from);
+
 		if (!message.state) { 
 			message.state = {};
 		}
@@ -18,56 +21,101 @@ class Evaluator {
 				botIterator: 0
 			};
 		}
-	}
-
-    async evaluate(message, log) {
-        const dataProvider = await providerFactory.getDataProvider(message, log);
-        const bots = algorithmFactory.getBotProcessor(message.bot);
-
-        // Initialise the bots.
-        for (let i = 0; i < bots.length; i++) {
-            const botProcessor = bots[i];    
-			await botProcessor.initialise(message, log, dataProvider);
-		}
-
-		this.setDefaults(message);
 
 		// Set the start time to the simulated start time.
 		if (!message.state.time)
-        	message.state.time = new Date(message.from);
+			message.state.time = new Date(message.from);
+		else 
+			message.state.time = new Date(message.state.time);
+	}
+
+    async evaluate(message, log) {
+		const dataProvider = await providerFactory.getDataProvider(message, log);
+		const traderProvider = await providerFactory.getTraderProvider(message, log);
+        const bots = await algorithmFactory.getBotProcessorAndInitialise(message, log, dataProvider);
+
+		this.setDefaults(message);
 
 		// ---------------------------------------------
+		console.log(message.state.time, message.to, message.state.time < message.to);
 
 		while (message.state.time < message.to) {
+			console.log(message.state.time, message.to, message.state.time < message.to);
 			while (message.state.evaluate.botIterator < bots.length) {
+				console.log(34567);
 
-				const botProcessor = bots[message.state.evaluate.botIterator];
+				const botProcessor = bots[message.state.evaluate.botIterator++];
 				log.application.write(`Executing bot: ${botProcessor.getName()}`);
 
 				await botProcessor.evaluate(message, log);
+console.log('evaluate');
+				if (message.orders && message.orders.length > 0) {
+					const res = await traderProvider.dispatch(message, log);
 
-				let hasInstruction = false;
-				if (message.state.orders && message.state.orders.length > 0) {
-					hasInstruction = await botProcessor.execute(message, this.executeInstruction.bind(this));
+					// If true, then dispatch the orders to be fullfilled.
+					if (res === true) {
+						return {
+							dispatch: true,
+							message
+						};
+					}
+
+					// Otherwise, execute orders inline.
+					await traderProvider.execute(message, log);
 				}
-				
+				console.log('evalSleep', 1);
 				await this.evalSleep();
-				message.state.evaluate.botIterator++;
+				console.log('evalSleep', 1);
+				// message.state.evaluate.botIterator++;
 			}
 
 			// Simulate sleep.
 			if (message.simulation === true) {
-				message.state.time.setSeconds(message.state.time.getSeconds() + message.period);
+				this.addTime(message);
 				log.application.write(`Simulate sleep for ${message.period} second(s). New Date/Time: ${moment(message.state.time).format('Do MMM YY h:mm:ss a')}`);
 			}
 
 			message.state.evaluate.botIterator = 0;
 
 			if (message.simulation !== true)
-			break;
+				break;
 		}
-		
 
+		console.log(888);
+
+		while (message.state.evaluate.botIterator < bots.length) {
+
+			const botProcessor = bots[message.state.evaluate.botIterator];
+			log.application.write(`Executing bot: ${botProcessor.getName()}`);
+
+			await botProcessor.finalise(message, log);
+
+			if (message.orders && message.orders.length > 0) {
+				const res = await traderProvider.dispatch(message, log);
+
+				// If true, then dispatch the orders to be fullfilled.
+				if (res === true) {
+					return {
+						dispatch: true,
+						message
+					};
+				}
+
+				// Otherwise, execute orders inline.
+				await traderProvider.execute(message, log);
+			}
+			
+			await this.evalSleep();
+			message.state.evaluate.botIterator++;
+		}
+
+		message.execution.end = new Date();
+
+		return {
+			dispatch: false,
+			message
+		};
+		
     }
 
     async executeInstruction(order, message) {
@@ -85,6 +133,19 @@ class Evaluator {
 
 	sleep(duration) {
 		return new Promise(resolve => setTimeout(() => resolve(), duration));
+	}
+
+	addTime(message) {
+		const originalOffset = message.state.time.getTimezoneOffset();
+		message.state.time.setSeconds(message.state.time.getSeconds() + message.period);
+		const newOffset = message.state.time.getTimezoneOffset();
+
+		// Handle changes in Daylight Savings.
+		if (originalOffset !== newOffset) {
+			const offset = originalOffset - newOffset;
+
+			message.state.time = moment(message.state.time).add(offset, 'm').toDate();
+		}
 	}
 }
 

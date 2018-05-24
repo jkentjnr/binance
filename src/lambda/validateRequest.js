@@ -10,8 +10,8 @@ const config = {
     color: colors.black.bgCyan
 }
 
-exports.handler = function(event, context, callback) {
-    lambdaHelper.dataWrapper(config, event, context, callback, async (message, log) => {
+exports.handler = async (event, context, callback) => {
+    await lambdaHelper.dataWrapper(config, event, context, callback, async (message, log) => {
         log.system.write('MESSAGE', JSON.stringify(message, null, 2));
 
         // Call validateRequest
@@ -25,10 +25,10 @@ exports.handler = function(event, context, callback) {
         // -----
 
         await Validator.setDefaults(message, log);
-        message.recorder = ['dataRecorder'];
+        message.recorder = ['dataRecorder', 'consoleRecorder'];
         
         // -----
 
         return message;
     });
-}
+};

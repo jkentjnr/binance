@@ -20,10 +20,17 @@ class Recorder {
         }
     }
 
+	async setFooter(message, log) {
+        const recorder = await this.getRecorder(message, log);
+        if (recorder) {
+            await recorder.setFooter(message, log);    
+        }
+    }
+
 	async close(message, log) {
         const recorder = await this.getRecorder(message, log);
         if (recorder) {
-            await recorder.close();
+            await recorder.close(message);
         }
     }
     

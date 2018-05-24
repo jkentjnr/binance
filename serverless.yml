@@ -49,6 +49,25 @@ functions:
       DATABASE_SCHEMA: backtester
       DATABASE_USER: sa
       DATABASE_PASSWORD: Ch!ef007
+  evaluateRequest:
+    handler: lib/lambda/evaluateRequest.handler
+    timeout: 300
+    environment:
+      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
+      DATABASE_SCHEMA: backtester
+      DATABASE_USER: sa
+      DATABASE_PASSWORD: Ch!ef007
+  executeTradeRequest:
+    handler: lib/lambda/executeTradeRequest.handler
+    timeout: 30
+    environment:
+      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
+      DATABASE_SCHEMA: backtester
+      DATABASE_USER: sa
+      DATABASE_PASSWORD: Ch!ef007
+  handleResult:
+    handler: lib/lambda/handleResult.handler
+    timeout: 10
 
 stepFunctions:
   stateMachines:
@@ -66,10 +85,36 @@ stepFunctions:
           ValidateRequestStep:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-validateRequest
-            Next: RecordRequestBeginStep
+            Next: DecisionValidateRequestStep
+          DecisionValidateRequestStep:
+            Type: Choice
+            Choices:
+             - Variable: "$.valid"
+               BooleanEquals: false
+               Next: HandleResultStep
+            Default: RecordRequestBeginStep
           RecordRequestBeginStep:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-recordRequestBegin
+            Next: EvaluateRequestStep
+          EvaluateRequestStep:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-evaluateRequest
+            Next: DecisionEvaluateRequestStep
+          DecisionEvaluateRequestStep:
+            Type: Choice
+            Choices:
+             - Variable: "$.dispatch"
+               BooleanEquals: true
+               Next: ExecuteTradeRequestStep
+            Default: HandleResultStep
+          ExecuteTradeRequestStep:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-executeTradeRequest
+            Next: EvaluateRequestStep
+          HandleResultStep:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-handleResult
             End: true
 
 plugins:
