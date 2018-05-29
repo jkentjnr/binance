@@ -1,13 +1,14 @@
 import get from 'lodash.get';
 import flatten from 'flat';
+import RecorderBase from './recorderBase';
 
 import Sequelize from 'sequelize';
 const Op = Sequelize.Op
 
-class DataRecorderProvider {
+class DataRecorderProvider extends RecorderBase {
 
     constructor() {
-        //super();
+        super();
         this.models = {};
     }
 
@@ -55,41 +56,28 @@ class DataRecorderProvider {
 
         this.models.botParameters = this.sequelize.define(
             'botParameters', {
-              name: { type: Sequelize.STRING(255) },
-              value: { type: Sequelize.STRING(255) },
+                name: { type: Sequelize.STRING(255) },
+                value: { type: Sequelize.STRING(255) },
             }
-          );
-          this.models.bot.hasMany(this.models.botParameters, { as: 'parameters' })
-          this.models.botParameters.belongsTo(this.models.bot, { onDelete: 'CASCADE' });
-/*
-          this.models.botTrades = this.sequelize.define(
+        );
+        this.models.bot.hasMany(this.models.botParameters, { as: 'parameters' })
+        this.models.botParameters.belongsTo(this.models.bot, { onDelete: 'CASCADE' });
+
+        this.models.botTrades = this.sequelize.define(
             'botTrades', {
-              key: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-              buy: { type: Sequelize.DECIMAL(18,10) },
-              buyOrderId: { type: Sequelize.STRING(100) },
-              buyTime: { type: Sequelize.DATE },
-              buyVolume: { type: Sequelize.DECIMAL(18,10) },
-              buyBehaviour: { type: Sequelize.STRING(100) },
-              recommendedBuy: { type: Sequelize.DECIMAL(18,10) },
-              recommendedBuyTime: { type: Sequelize.DATE },
-              sell: { type: Sequelize.DECIMAL(18,10) },
-              sellOrderId: { type: Sequelize.STRING(100) },
-              sellTime: { type: Sequelize.DATE },
-              sellVolume: { type: Sequelize.DECIMAL(18,10) },
-              sellBehaviour: { type: Sequelize.STRING(100) },
-              recommendedSell: { type: Sequelize.DECIMAL(18,10) },
-              recommendedSellTime: { type: Sequelize.DATE },
-              txnFeePerUnit: { type: Sequelize.DECIMAL(18,10) },
-              preFeeProfitUnit: { type: Sequelize.DECIMAL(18,10) },
-              postFeeProfitUnit: { type: Sequelize.DECIMAL(18,10) },
-              preFeeProfit: { type: Sequelize.DECIMAL(18,10) },
-              postFeeProfit: { type: Sequelize.DECIMAL(18,10) },
+                key: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+                symbol: { type: Sequelize.STRING(50) },
+                action: { type: Sequelize.STRING(10) },
+                time: { type: Sequelize.DATE },
+                orderId: { type: Sequelize.STRING(50) },
+                volume: { type: Sequelize.DECIMAL(18,10) },
+                behaviour: { type: Sequelize.STRING(100) },
+                value: { type: Sequelize.DECIMAL(18,10) },
             }
-          );
-          this.models.bot.hasMany(this.models.botTrades, { as: 'trades' });
-          this.models.botTrades.belongsTo(this.models.bot, { onDelete: 'CASCADE' });
-        }    
-*/      
+        );
+        this.models.bot.hasMany(this.models.botTrades, { as: 'trades' });
+        this.models.botTrades.belongsTo(this.models.bot, { onDelete: 'CASCADE' });
+
 
         return this.sequelize.sync();
     }
@@ -102,24 +90,7 @@ class DataRecorderProvider {
 
     async setHeader(message, log) {
 
-		const msg = {
-            key: message.name,
-            campaign: message.campaign || null,
-            symbol: message.symbol,
-            bot: message.bot.join('_'),
-            startSimulation: message.from,
-			endSimulation: message.to,
-            startBalance: get(message, 'execution.startBalance') || null,
-            endBalance: get(message, 'execution.endBalance') || null,
-            startExecution: get(message, 'execution.start') || null,
-            endExecution: get(message, 'execution.end') || null,
-            profitLoss: get(message, 'execution.profitLoss') || null,
-            tradeCount: get(message, 'execution.tradeCount') || null,
-            profitTradeCount: get(message, 'execution.profitTradeCount') || null,
-            lossTradeCount: get(message, 'execution.lossTradeCount') || null,
-		};
-
-        await this.models.bot.upsert(msg);
+		await this.upsertBotRecord(message, log);
 
         // ---------------
 
@@ -145,6 +116,60 @@ class DataRecorderProvider {
         if (parameterList.length > 0) {
             await this.models.botParameters.bulkCreate(parameterList);
         }
+    }
+
+    async setFooter(message, log) {
+
+        await this.upsertBotRecord(message, log);
+        
+        // ---------------
+
+        if (message.history && message.history.length > 0) {
+            const tradeList = message.history.map(trade => Object.assign({}, { botKey: message.name }, trade));
+
+            if (tradeList.length > 0) {
+                await this.models.botTrades.bulkCreate(tradeList);
+            }
+        }
+
+        // ---------------
+
+        let parameterList = [];
+
+        if (message.execution) {
+            const flatExecutionList = flatten(message.execution);
+            parameterList = Object.keys(flatExecutionList).map(key => ({
+                botKey: message.name,
+                name: `execution.${key}`,
+                value: (flatExecutionList[key] && flatExecutionList[key].toString) ? flatExecutionList[key].toString() : flatExecutionList[key]
+            }));
+        }
+
+        if (parameterList.length > 0) {
+            await this.models.botParameters.bulkCreate(parameterList);
+        }
+    }
+
+    async upsertBotRecord(message, log) {
+
+		const msg = {
+            key: message.name,
+            campaign: message.campaign || null,
+            symbol: message.symbol,
+            bot: message.bot.join('_'),
+            startSimulation: message.from,
+			endSimulation: message.to,
+            startBalance: get(message, 'execution.startBalance') || null,
+            endBalance: get(message, 'execution.endBalance') || null,
+            startExecution: get(message, 'execution.start') || null,
+            endExecution: get(message, 'execution.end') || null,
+            profitLoss: get(message, 'execution.profitLoss') || null,
+            tradeCount: get(message, 'execution.tradeCount') || null,
+            profitTradeCount: get(message, 'execution.profitTradeCount') || null,
+            lossTradeCount: get(message, 'execution.lossTradeCount') || null,
+		};
+
+        await this.models.bot.upsert(msg);
     }
 }
 

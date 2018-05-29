@@ -13,11 +13,15 @@ const requestSchema = {
       "simulation": {"type": "boolean", "required": true},
       "campaign": {"type": "string"},
       "symbol": {"type": "string", "required": true},
+      "bank": {"type": "number", "default": 1000},
       "bot": {"type": "array", "items": { "type": "string", "enum": algorithmFactory.getBotList() }, "required": true},
       "period": {"type": "integer", "enum": [3600, 14400, 86400], "required": true},
       "from": {"type": "date-time", "required": true},
       "to": {"type": "date-time", "required": true},
       "data": {"type": "string", "enum": providerFactory.getDataProviderList(), "required": true},
+      "recorder": {"type": "array", "items": { "type": "string", "enum": providerFactory.getRecorderProviderList() }, "required": true},
+      "trader": {"type": "string", "enum": providerFactory.getTraderProviderList(), "required": true},
+      
     }
 };
 
@@ -64,7 +68,7 @@ class Validator {
         // If a bot is present and valid, extend the schema for bot-specific request params 
         if (message.bot) {
             const bots = algorithmFactory.getBotProcessor(message.bot);
-            bots.forEach(botProcessor => botProcessor.setDefaults(message, log));
+            bots.forEach(async botProcessor => await botProcessor.setDefaults(message, log));
         }
 
         // ----
@@ -76,8 +80,16 @@ class Validator {
             message.name = `${new Date().getTime()}_${message.bot.join('_')}`;
         }
 
+        if (!message.bank) {
+            message.bank = requestSchema.properties.bank.default;
+        }
+
         if (!get(message, 'execution.start')) {
             set(message, 'execution.start', new Date());
+        }        
+
+        if (!get(message, 'execution.startBalance')) {
+            set(message, 'execution.startBalance', message.bank);
         }
 
         if (!message.log) {
@@ -106,6 +118,45 @@ class Validator {
 
         if (!message.config.txnFee) {
             message.config.txnFee = 0.005;
+        }
+
+    }
+
+    async finalise(message, log) {
+
+        // If a bot is present and valid, extend the schema for bot-specific request params 
+        if (message.bot) {
+            const bots = algorithmFactory.getBotProcessor(message.bot);
+            bots.forEach(async botProcessor => await botProcessor.finalise(message, log));
+        }
+
+        // ----
+
+        if (!get(message, 'execution.end')) {
+            set(message, 'execution.end', new Date());
+        }
+
+        if (!get(message, 'execution.endBalance')) {
+            if (message.history && message.history.length > 0) {
+                const finalValue = message.history[message.history.length-1].value;
+                set(message, 'execution.endBalance', finalValue);
+            }
+        }
+
+        if (!get(message, 'execution.totalTrades')) {
+            if (message.history) {
+                set(message, 'execution.totalTrades', message.history.length);
+            }
+        }
+
+        if (!get(message, 'execution.profitLoss')) {
+            if (message.history && message.history.length > 0) {
+                const startValue = message.history[0].value;
+                const finalValue = message.history[message.history.length-1].value;
+                const profitLoss = finalValue - startValue;
+                
+                set(message, 'execution.profitLoss', profitLoss);
+            }
         }
 
     }

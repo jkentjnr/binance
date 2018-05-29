@@ -27,6 +27,13 @@ class Recorder {
         }
     }
 
+	async finalise(message, log) {
+        const recorder = await this.getRecorder(message, log);
+        if (recorder) {
+            await recorder.finalise(message, log);    
+        }
+    }
+
 	async close(message, log) {
         const recorder = await this.getRecorder(message, log);
         if (recorder) {

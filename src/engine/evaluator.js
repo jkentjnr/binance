@@ -37,18 +37,15 @@ class Evaluator {
 		this.setDefaults(message);
 
 		// ---------------------------------------------
-		console.log(message.state.time, message.to, message.state.time < message.to);
 
 		while (message.state.time < message.to) {
-			console.log(message.state.time, message.to, message.state.time < message.to);
 			while (message.state.evaluate.botIterator < bots.length) {
-				console.log(34567);
 
 				const botProcessor = bots[message.state.evaluate.botIterator++];
 				log.application.write(`Executing bot: ${botProcessor.getName()}`);
 
 				await botProcessor.evaluate(message, log);
-console.log('evaluate');
+
 				if (message.orders && message.orders.length > 0) {
 					const res = await traderProvider.dispatch(message, log);
 
@@ -63,9 +60,9 @@ console.log('evaluate');
 					// Otherwise, execute orders inline.
 					await traderProvider.execute(message, log);
 				}
-				console.log('evalSleep', 1);
+
 				await this.evalSleep();
-				console.log('evalSleep', 1);
+
 				// message.state.evaluate.botIterator++;
 			}
 
@@ -80,8 +77,6 @@ console.log('evaluate');
 			if (message.simulation !== true)
 				break;
 		}
-
-		console.log(888);
 
 		while (message.state.evaluate.botIterator < bots.length) {
 
@@ -117,10 +112,6 @@ console.log('evaluate');
 		};
 		
     }
-
-    async executeInstruction(order, message) {
-		console.log('order', order);
-	}
 	
 	async evalSleep() {
 		if (this.processCounter > 60) {

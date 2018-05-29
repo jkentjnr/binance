@@ -23,9 +23,39 @@ export default class VenomBot extends BotBase {
         schema.properties.parameters = {
             "type": "object",
             "properties": {
-                "ma": {"type": "integer", "required": true}
+				"baseSymbol": {"type": "string", "required": true},
+				"buy": {
+					"type": "object",
+					"properties": {
+						"ma": {"type": "integer", "required": true},
+						"period": {"type": "integer", "required": true},
+						"offset": {"type": "integer", "required": true},
+					}
+				},
+				"sell": {
+					"type": "object",
+					"properties": {
+						"ma": {"type": "integer", "required": true},
+						"period": {"type": "integer", "required": true},
+						"offset": {"type": "integer", "required": true},
+					}
+				}
             }
         };
+	}
+	
+    async setDefaults(message) {
+		if (!message.name) {
+			message.name = `${new Date().getTime()}_${message.bot}_${message.symbol}_${message.parameters.baseSymbol}`;
+		}
+
+        if (!get(message, 'execution.totalTrades')) {
+            if (message.history) {
+                set(message, 'execution.totalTrades', message.history.length);
+            }
+        }
+		
+        return message;
     }
 
     async initialise(message, log, dataProvider) {
@@ -33,7 +63,7 @@ export default class VenomBot extends BotBase {
         this.dataProvider = dataProvider;
         this.periodName = botHelper.getPeriodName(message.period);
 
-        if (!message.state[message.symbol]) {
+		if (!message.state[message.symbol]) {
             message.state[message.symbol] = {};
         }
 
@@ -44,7 +74,7 @@ export default class VenomBot extends BotBase {
         if (!message.wallet) {
             message.wallet = {
                 USD: {
-                    value: message.bank || 1000,
+                    value: message.bank,
                     buy: [ message.parameters.baseSymbol ],
                     sell: null
                 },
@@ -59,7 +89,7 @@ export default class VenomBot extends BotBase {
                     sell: [ message.symbol ]
                 }
             };
-        }
+		}
 
         // ----------------------------------------
 
@@ -408,6 +438,37 @@ export default class VenomBot extends BotBase {
 		log.application.write();
 
 		await this.execute(message, true);
+
+		// -----------------------------------------------------------------------------------
+		// Calculate
+
+		const altTrades = botHelper.getTradesBySymbol(message, message.symbol);
+		const altTradeStats = botHelper.getTradeStats(altTrades);
+		set(message, 'execution.altTradeCount', altTradeStats.totalCompleteTrades);
+		set(message, 'execution.altProfitTradeCount', altTradeStats.profitTrades);
+		set(message, 'execution.altLossTradeCount', altTradeStats.lossTrades);
+		set(message, 'execution.altTotalIndividualTrades', altTradeStats.totalIndividualTrades);
+
+		const baseTrades = botHelper.getTradesBySymbol(message, message.parameters.baseSymbol);
+		const baseTradeStats = botHelper.getTradeStats(baseTrades);
+		set(message, 'execution.baseTradeCount', baseTradeStats.totalCompleteTrades);
+		set(message, 'execution.baseProfitTradeCount', baseTradeStats.profitTrades);
+		set(message, 'execution.baseLossTradeCount', baseTradeStats.lossTrades);
+		set(message, 'execution.baseTotalIndividualTrades', baseTradeStats.totalIndividualTrades);
+
+		const totalTradeCount = altTradeStats.totalCompleteTrades + baseTradeStats.totalCompleteTrades;
+		set(message, 'execution.tradeCount', totalTradeCount);
+
+		const profitTradeCount = altTradeStats.profitTrades + baseTradeStats.profitTrades;
+		set(message, 'execution.profitTradeCount', profitTradeCount);
+
+		const lossTradeCount = altTradeStats.lossTrades + baseTradeStats.lossTrades;
+		set(message, 'execution.lossTradeCount', lossTradeCount);
+
+
+
+
+		//throw new Error();
 	}
 
 	// -------------------------------------------------------
@@ -482,13 +543,10 @@ export default class VenomBot extends BotBase {
 		const symbolBuyOrder = orders.find(item => item.symbol === message.symbol && item.action === actions.ACTION_BUY);
 		appendOrder(result, altKey, symbolBuyOrder);
 
-		console.log(123);
 		const idx = message.log.findIndex(item => {
-			console.log(item);
 			return moment(item.time).isSame(time);
 			//return item.time && new Date(item.time).getTime() === new Date(time).getTime();
 		});
-		console.log(456);
 
 		if (idx === -1)
 			message.log.push(result);

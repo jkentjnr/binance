@@ -35,4 +35,12 @@ export default class RecorderProxy {
                 await recorder.setFooter(message, logger);
         }
     }
+
+    async finalise(message, logger) {
+        for (let i = 0; i < this.recorders.length; i++) {
+            const recorder = this.recorders[i];
+            if (recorder.finalise)
+                await recorder.finalise(message, logger);
+        }
+    }
 }

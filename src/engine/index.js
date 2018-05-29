@@ -9,13 +9,18 @@ class BotEngine {
 
         // Validate
         const response = await new Validator.validate(message, log);
-        if (response.valid === false) return;
+        if (response.valid === false) {
+            console.log(response);
+            return;
+        }
 
         await Validator.setDefaults(message, log);
 
         await Recorder.setHeader(message, log);
 
         await Evaluator.evaluate(message, log);
+
+        await Validator.finalise(message, log);
 
         await Recorder.setFooter(message, log);
 

@@ -11,7 +11,11 @@ provider:
     S3_REGION: ap-northeast-2
     S3_BUCKET: crypto-bot
     S3_PATH: output
-
+    DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
+    DATABASE_SCHEMA: backtester
+    DATABASE_USER: sa
+    DATABASE_PASSWORD: Ch!ef007
+    
 package:
   exclude:
     - .env
@@ -28,43 +32,21 @@ functions:
           path: execute
           method: POST
           cors: true
-    environment:
-      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
-      DATABASE_SCHEMA: backtester
-      DATABASE_USER: sa
-      DATABASE_PASSWORD: Ch!ef007
   validateRequest:
     handler: lib/lambda/validateRequest.handler
     timeout: 10
-    environment:
-      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
-      DATABASE_SCHEMA: backtester
-      DATABASE_USER: sa
-      DATABASE_PASSWORD: Ch!ef007
   recordRequestBegin:
     handler: lib/lambda/recordRequestBegin.handler
     timeout: 10
-    environment:
-      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
-      DATABASE_SCHEMA: backtester
-      DATABASE_USER: sa
-      DATABASE_PASSWORD: Ch!ef007
   evaluateRequest:
     handler: lib/lambda/evaluateRequest.handler
     timeout: 300
-    environment:
-      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
-      DATABASE_SCHEMA: backtester
-      DATABASE_USER: sa
-      DATABASE_PASSWORD: Ch!ef007
   executeTradeRequest:
     handler: lib/lambda/executeTradeRequest.handler
     timeout: 30
-    environment:
-      DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
-      DATABASE_SCHEMA: backtester
-      DATABASE_USER: sa
-      DATABASE_PASSWORD: Ch!ef007
+  recordResult:
+    handler: lib/lambda/recordResult.handler
+    timeout: 30
   handleResult:
     handler: lib/lambda/handleResult.handler
     timeout: 10
@@ -107,11 +89,15 @@ stepFunctions:
              - Variable: "$.dispatch"
                BooleanEquals: true
                Next: ExecuteTradeRequestStep
-            Default: HandleResultStep
+            Default: RecordResultStep
           ExecuteTradeRequestStep:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-executeTradeRequest
             Next: EvaluateRequestStep
+          RecordResultStep:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-recordResult
+            Next: HandleResultStep
           HandleResultStep:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-handleResult

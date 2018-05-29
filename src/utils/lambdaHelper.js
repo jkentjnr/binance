@@ -5,11 +5,6 @@ import set from 'lodash.set';
 const S3_TICKET = 'S3_TICKET';
 const S3_PATH = 'messages/';
 
-const log = {
-	application: { write: (a,b,c,d,e,f,g,h,i) => console.log('APPLICATION', a||'',b||'',c||'',d||'',e||'',f||'',g||'',h||'',i||'') },
-	system: { write: (a,b,c,d,e,f,g,h,i) => console.log('SYSTEM', a||'',b||'',c||'',d||'',e||'',f||'',g||'',h||'',i||'') }
-};
-
 exports.loadMessage = async (event) => {
 	if (event.key && event.type === S3_TICKET) {
 		let message;
@@ -48,12 +43,25 @@ exports.handleResult = async (context, callback, err, data) => {
 		callback(null, response);
 };
 
+const writeToLog = (config, message, a, b, c, d, e, f, g, h, i) => {
+	if (!message.console) message.console = [];
+	const appName = (config.title && config.color) ? config.color(config.title) : ' App       ';
+	console.log(appName, a, b, c, d, e, f, g, h, i);
+	message.console.push([config.color(config.title), a||'', b||'', c||'', d||'', e||'', f||'', g||'', h||'' ,i||''].join(' '));
+}
+
 exports.dataWrapper = async (config, event, context, callback, func) => {
 	context.callbackWaitsForEmptyEventLoop = config.waitForEmptyEventLoop || false;
 
+	let message;
+	const log = {
+		application: { write: (a,b,c,d,e,f,g,h,i) => writeToLog(config, message, a,b,c,d,e,f,g,h,i) },
+		system: { write: (a,b,c,d,e,f,g,h,i) => console.log('SYSTEM', a||'',b||'',c||'',d||'',e||'',f||'',g||'',h||'',i||'') }
+	};	
+	
 	try {
-		const data = await exports.loadMessage(event);
-		const funcResult = await func(data, log);
+		message = await exports.loadMessage(event);
+		const funcResult = await func(message, log);
 		await exports.handleResult(context, callback, null, funcResult);
 		
 	}

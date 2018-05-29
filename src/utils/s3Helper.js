@@ -2,17 +2,18 @@ import AWS from 'aws-sdk';
 const s3 = new AWS.S3();
 
 export default class S3Helper {
-    static saveFile(filename, data) {
+    static saveFile(filename, data, isJson = true) {
         const params = {
             Bucket: process.env.S3_BUCKET, 
             Key: filename,
-            Body: JSON.stringify(data, null, 2)
+            Body: (isJson) ? JSON.stringify(data, null, 2) : data
         };
 
         return new Promise((resolve, reject) => {
             s3.putObject(params, function(err, fileStream) {
                 if (err) { reject(err); return; }
                 //const fileData = fileStream.Body.toString('utf8');
+                console.log('data', data);
                 resolve(data);
             });
         });

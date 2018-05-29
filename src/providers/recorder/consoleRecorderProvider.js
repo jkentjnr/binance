@@ -1,8 +1,13 @@
 import moment from 'moment';
 import colors from 'colors/safe';
 import prettyjson from 'prettyjson';
+import RecorderBase from './recorderBase';
 
-class ConsoleRecorderProvider {
+class ConsoleRecorderProvider extends RecorderBase {
+
+    constructor() {
+        super();
+    }
 
     async setHeader(message, log) {
 		log.application.write();
@@ -33,7 +38,7 @@ class ConsoleRecorderProvider {
             log.application.write(`Simulation End:   ${moment(message.execution.end).format('Do MMM YY h:mm:ss a')}`);
         }
         log.application.write(`Transaction Fee:  ${message.config.txnFee}`);
-        log.application.write();	
+        log.application.write();
 
         if (message.history.length === 0) {
             log.application.write('  (No Trades)');

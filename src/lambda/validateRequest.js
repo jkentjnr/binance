@@ -24,8 +24,9 @@ exports.handler = async (event, context, callback) => {
 
         // -----
 
+        // Defaults the message appropriately and extends it to support a wider array of outputs.
         await Validator.setDefaults(message, log);
-        message.recorder = ['dataRecorder', 'consoleRecorder'];
+        message.recorder = ['dataRecorder', 'consoleRecorder', 'logToS3Recorder', 'csvToS3Recorder'];
         
         // -----
 
