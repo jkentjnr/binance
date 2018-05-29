@@ -163,9 +163,11 @@ class DataRecorderProvider extends RecorderBase {
             endBalance: get(message, 'execution.endBalance') || null,
             startExecution: get(message, 'execution.start') || null,
             endExecution: get(message, 'execution.end') || null,
+            executionTime: get(message, 'execution.executionTime') || null,
             profitLoss: get(message, 'execution.profitLoss') || null,
             tradeCount: get(message, 'execution.tradeCount') || null,
             profitTradeCount: get(message, 'execution.profitTradeCount') || null,
+            profitTradePercentage: get(message, 'execution.profitTradePercentage') || null,
             lossTradeCount: get(message, 'execution.lossTradeCount') || null,
 		};
 

@@ -132,8 +132,16 @@ class Validator {
 
         // ----
 
+        let endDate = get(message, 'execution.end');
         if (!get(message, 'execution.end')) {
-            set(message, 'execution.end', new Date());
+            endDate = new Date();
+            set(message, 'execution.end', endDate);
+        }
+
+        const startDate = get(message, 'execution.start');
+        if (startDate) {
+            const executionTime = endDate.getTime() - startDate.getTime();
+            set(message, 'execution.executionTime', executionTime);
         }
 
         if (!get(message, 'execution.endBalance')) {
@@ -143,9 +151,9 @@ class Validator {
             }
         }
 
-        if (!get(message, 'execution.totalTrades')) {
+        if (!get(message, 'execution.tradeCount')) {
             if (message.history) {
-                set(message, 'execution.totalTrades', message.history.length);
+                set(message, 'execution.tradeCount', message.history.length);
             }
         }
 
@@ -153,11 +161,19 @@ class Validator {
             if (message.history && message.history.length > 0) {
                 const startValue = message.history[0].value;
                 const finalValue = message.history[message.history.length-1].value;
-                const profitLoss = finalValue - startValue;
+                const profitLoss = finalValue / startValue;
                 
                 set(message, 'execution.profitLoss', profitLoss);
             }
         }
+
+        if (get(message, 'execution.tradeCount') && get(message, 'execution.profitTradeCount')) {
+            const tradeCount = get(message, 'execution.tradeCount');
+            const profitTradeCount = get(message, 'execution.profitTradeCount');
+            const profitTradePercentage = profitTradeCount / tradeCount;
+            set(message, 'execution.profitTradePercentage', profitTradePercentage);
+        }
+        
 
     }
 }
