@@ -6,4 +6,6 @@ export default class RecorderBase {
 
     async finalise(message, log) { }
 
+    async close(message, log) { }
+
 }

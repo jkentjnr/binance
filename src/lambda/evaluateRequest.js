@@ -16,6 +16,7 @@ exports.handler = async (event, context, callback) => {
 
         const response = await Evaluator.evaluate(message, log);
         message.step.dispatch = response.dispatch;
+        message.config.closeDataConnections = true;
 
         return message;
     });

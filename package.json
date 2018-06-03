@@ -27,6 +27,7 @@
     "moment": "^2.20.1",
     "mysql2": "^1.5.1",
     "performance-now": "^2.1.0",
+    "permutator": "0.0.4",
     "prettyjson": "^1.2.1",
     "request": "^2.83.0",
     "request-promise-native": "^1.0.5",

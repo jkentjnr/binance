@@ -20,7 +20,7 @@ class DataRecorderProvider extends RecorderBase {
             dialect: 'mysql',
             //logging: false, //this.log, //(process.env.LOGGING === 'true') ? console.log : false,
             logging: console.log,
-            pool: { maxIdleTime: 100, max: 5, min: 1 },
+            pool: { maxIdleTime: 50, max: 1, min: 1 },
             operatorsAliases: Op,
         });
 
@@ -31,7 +31,7 @@ class DataRecorderProvider extends RecorderBase {
             'bot', {
                 key: { type: Sequelize.STRING(180), primaryKey: true },
                 campaign: { type: Sequelize.STRING(100) },
-                symbol: { type: Sequelize.STRING(10) },
+                symbol: { type: Sequelize.STRING(50) },
                 bot: { type: Sequelize.STRING(10) },
                 startSimulation: { type: Sequelize.DATE },
                 endSimulation: { type: Sequelize.DATE },
@@ -79,7 +79,7 @@ class DataRecorderProvider extends RecorderBase {
         this.models.botTrades.belongsTo(this.models.bot, { onDelete: 'CASCADE' });
 
 
-        return this.sequelize.sync();
+        return this.sequelize.sync(); 
     }
 
     async close(message) {
@@ -142,6 +142,15 @@ class DataRecorderProvider extends RecorderBase {
                 botKey: message.name,
                 name: `execution.${key}`,
                 value: (flatExecutionList[key] && flatExecutionList[key].toString) ? flatExecutionList[key].toString() : flatExecutionList[key]
+            }));
+        }
+
+        if (message.response) {
+            const flatResponseList = flatten(message.response);
+            Object.keys(flatResponseList).forEach(key => parameterList.push({
+                botKey: message.name,
+                name: `response.${key}`,
+                value: (flatResponseList[key] && flatResponseList[key].toString) ? flatResponseList[key].toString() : flatResponseList[key]
             }));
         }
 

@@ -11,10 +11,13 @@ provider:
     S3_REGION: ap-northeast-2
     S3_BUCKET: crypto-bot
     S3_PATH: output
+    S3_URL: http://crypto-bot.s3-website.ap-northeast-2.amazonaws.com/
     DATABASE_HOST: crypto-data.cnngmdbklay6.ap-northeast-2.rds.amazonaws.com
     DATABASE_SCHEMA: backtester
     DATABASE_USER: sa
     DATABASE_PASSWORD: Ch!ef007
+    STEP_EXECUTE_SCALAR_ARN: arn:aws:states:#{AWS::Region}:#{AWS::AccountId}:stateMachine:executeScalar
+    SNS_NOTIFICATION_ARN: arn:aws:sns:#{AWS::Region}:#{AWS::AccountId}:simulationNotification
     
 package:
   exclude:
@@ -32,6 +35,26 @@ functions:
           path: execute
           method: POST
           cors: true
+  executeSingle:
+    handler: lib/lambda/executeSingle.handler
+    timeout: 300
+    events:
+      - http:
+          path: executeSingle
+          method: POST
+          cors: true
+  executeBulk:
+    handler: lib/lambda/executeBulk.handler
+    timeout: 300
+    events:
+      - http:
+          path: executeBulk
+          method: POST
+          cors: true
+  handleNotification:
+    handler: lib/lambda/handleNotification.handler
+    events:
+      - sns: simulationNotification
   validateRequest:
     handler: lib/lambda/validateRequest.handler
     timeout: 10
@@ -40,6 +63,7 @@ functions:
     timeout: 10
   evaluateRequest:
     handler: lib/lambda/evaluateRequest.handler
+    memorySize: 1024
     timeout: 300
   executeTradeRequest:
     handler: lib/lambda/executeTradeRequest.handler
@@ -68,6 +92,12 @@ stepFunctions:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-validateRequest
             Next: DecisionValidateRequestStep
+            Retry:
+             - ErrorEquals: 
+               - Lambda.TooManyRequestsException
+               IntervalSeconds: 3
+               MaxAttempts: 10
+               BackoffRate: 1
           DecisionValidateRequestStep:
             Type: Choice
             Choices:
@@ -79,10 +109,22 @@ stepFunctions:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-recordRequestBegin
             Next: EvaluateRequestStep
+            Retry:
+             - ErrorEquals: 
+               - Lambda.TooManyRequestsException
+               IntervalSeconds: 3
+               MaxAttempts: 10
+               BackoffRate: 1
           EvaluateRequestStep:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-evaluateRequest
             Next: DecisionEvaluateRequestStep
+            Retry:
+             - ErrorEquals: 
+               - Lambda.TooManyRequestsException
+               IntervalSeconds: 3
+               MaxAttempts: 10
+               BackoffRate: 1
           DecisionEvaluateRequestStep:
             Type: Choice
             Choices:
@@ -94,13 +136,31 @@ stepFunctions:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-executeTradeRequest
             Next: EvaluateRequestStep
+            Retry:
+             - ErrorEquals: 
+               - Lambda.TooManyRequestsException
+               IntervalSeconds: 3
+               MaxAttempts: 10
+               BackoffRate: 1
           RecordResultStep:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-recordResult
             Next: HandleResultStep
+            Retry:
+             - ErrorEquals: 
+               - Lambda.TooManyRequestsException
+               IntervalSeconds: 3
+               MaxAttempts: 10
+               BackoffRate: 1
           HandleResultStep:
             Type: Task
             Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-handleResult
+            Retry:
+             - ErrorEquals: 
+               - Lambda.TooManyRequestsException
+               IntervalSeconds: 3
+               MaxAttempts: 10
+               BackoffRate: 1
             End: true
 
 plugins:

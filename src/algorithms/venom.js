@@ -140,7 +140,8 @@ export default class VenomBot extends BotBase {
 
         if (message.simulation === true) {
             
-            const response = await this.initialise(message, log, dataProvider);
+			const response = await this.initialise(message, log, dataProvider);
+			console.log('initialise', response);
 
             if (!response.firstRecord) {
                 errors.push(`Could not find data for symbol '${message.symbol}'. Trigger: Start Date - ${response.from}`);
@@ -612,9 +613,9 @@ export default class VenomBot extends BotBase {
 			const startOffset = endOffset + (range * period) - 1; 
 			const startDate = moment(new Date(time)).subtract(startOffset, 'seconds').toDate();
 
-            //console.log('DATASET_MA', i, range, endDate, startDate);
+            console.log('DATASET_MA', i, range, endDate, startDate);
 			const dataset = await this.dataProvider.candlesticks.getByDateTimeRange(symbol, this.periodName, startDate, endDate);
-			//console.log('DATASET_MA', dataset.length, dataset[0].date_period_start, dataset[dataset.length-1].date_period_start);
+			console.log('DATASET_MA', dataset.length, dataset[0], dataset[dataset.length-1]);
 
 			const close = parseFloat(dataset[dataset.length-1].px_close);
 			//const maPrice = dataset.reduce((accumulator, item) => parseFloat(accumulator + parseFloat(item.px_close)), 0) / dataset.length;

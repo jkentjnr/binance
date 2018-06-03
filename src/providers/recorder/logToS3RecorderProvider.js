@@ -1,5 +1,6 @@
 import RecorderBase from './recorderBase';
 import s3Helper from '../../utils/s3Helper';
+import set from 'lodash.set';
 
 import Convert from 'ansi-to-html';
 const convertHtml = new Convert();
@@ -17,7 +18,11 @@ class LogToS3RecorderProvider extends RecorderBase {
             //console.log('html', htmlLog);
 
             const folderPath = (process.env.S3_PATH) ? `${process.env.S3_PATH}/${message.name}/` : `${message.name}/`;
-            await s3Helper.saveFile(`${folderPath}${message.name}.html`, htmlLog);
+            const filePath = `${folderPath}${message.name}.html`;
+
+            await s3Helper.saveFile(filePath, htmlLog, 'text/html');
+
+            set(message, 'response.html', `${process.env.S3_URL}${filePath}`);
         }
     }
 

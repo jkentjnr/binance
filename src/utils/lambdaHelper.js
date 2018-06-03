@@ -28,7 +28,7 @@ exports.saveMessage = async (context, message) => {
 	}
 
 	try { await s3Helper.saveFile(message.step.key, message); }
-	catch (e) { console.log('err4', e); throw new Exceptions.ConfigurationError('Could not save the configuration to S3.', e); }
+	catch (e) { console.log('err4', e, JSON.stringify(message)); throw new Exceptions.ConfigurationError('Could not save the configuration to S3.', e); }
 
 	return message.step;
 };
@@ -62,7 +62,12 @@ exports.dataWrapper = async (config, event, context, callback, func) => {
 	try {
 		message = await exports.loadMessage(event);
 		const funcResult = await func(message, log);
-		await exports.handleResult(context, callback, null, funcResult);
+
+		if (config.sendResponse === true) {
+			callback(null, funcResult);
+		}
+		else
+			await exports.handleResult(context, callback, null, funcResult);
 		
 	}
 	catch(e) {

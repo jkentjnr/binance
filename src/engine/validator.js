@@ -132,15 +132,17 @@ class Validator {
 
         // ----
 
-        let endDate = get(message, 'execution.end');
+        let endDate;
         if (!get(message, 'execution.end')) {
             endDate = new Date();
             set(message, 'execution.end', endDate);
         }
+        else 
+            endDate = new Date(get(message, 'execution.end'));
 
         const startDate = get(message, 'execution.start');
         if (startDate) {
-            const executionTime = endDate.getTime() - startDate.getTime();
+            const executionTime = endDate.getTime() - new Date(startDate).getTime();
             set(message, 'execution.executionTime', executionTime);
         }
 

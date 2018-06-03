@@ -2,6 +2,7 @@ import moment from 'moment';
 import colors from 'colors/safe';
 import prettyjson from 'prettyjson';
 import RecorderBase from './recorderBase';
+import objectHelper from '../../utils/objectHelper';
 
 class ConsoleRecorderProvider extends RecorderBase {
 
@@ -11,8 +12,8 @@ class ConsoleRecorderProvider extends RecorderBase {
 
     async setHeader(message, log) {
 		log.application.write();
-		log.application.write(`${colors.bold('Binance Bot Engine')}`);
-		log.application.write(`------------------`);
+		log.application.write(`${colors.bold('Bot Engine')}`);
+		log.application.write(`----------`);
 		log.application.write();
 		log.application.write(`Symbol: ${colors.bold(message.symbol)}`);
 		log.application.write(`Transaction Fee: ${colors.bold(message.config.txnFee)}`);
@@ -61,11 +62,14 @@ class ConsoleRecorderProvider extends RecorderBase {
     }
 
     printOptions(message, log) {
+        const temp = objectHelper.deepClone(message);
+        if (temp.console) delete temp.console;
+
 		log.application.write();
 		log.application.write(`Parameters`);
 		log.application.write(`----------`);
 		log.application.write();
-		const result = prettyjson.render(message).split('\n');
+		const result = prettyjson.render(temp).split('\n');
 		result.forEach(line => log.application.write(line));
         log.application.write();
     }
