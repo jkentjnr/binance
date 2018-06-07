@@ -102,6 +102,7 @@ export default class SimulatorTraderProvider {
 			}
 			else {
 				log.application.write(`${colors.red('Ignored')} ${colors.black.bgGreen('BUY')} order - not enough funds.`);
+				throw new Error();
 			}
 
 			log.application.write();
@@ -123,6 +124,8 @@ export default class SimulatorTraderProvider {
 
 		// console.log('sourceWallet', sourceWallet);
 		// console.log('targetWallet', targetWallet);
+
+		console.log('order', order);
 
 		if (message.simulation) {
 
@@ -170,6 +173,8 @@ export default class SimulatorTraderProvider {
 			}
 			else {
 				log.application.write(`${colors.red('Ignored')} ${colors.black.bgRed('SELL')} order - not enough coins.`);
+				console.log('sourceWallet', sourceWallet);
+				throw new Error();
 			}
 
 			log.application.write();

@@ -6,7 +6,9 @@
   "scripts": {
     "test": "jest --verbose",
     "install": "babel -d lib/ src/",
-    "deploy:api": "npm install && serverless deploy"
+    "deploy:api": "npm install && serverless deploy",
+    "babel": "babel",
+    "babel-node": "babel-node"
   },
   "author": "",
   "license": "ISC",
